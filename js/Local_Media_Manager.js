@@ -67,7 +67,7 @@ app.registerExtension({
                 const node_instance = this;
                 
                 const galleryIdWidget = this.addWidget(
-                    "text",
+                    "hidden_text",
                     "gallery_unique_id_widget",
                     this.properties.gallery_unique_id,
                     () => {},
@@ -78,11 +78,11 @@ app.registerExtension({
                 };
                 galleryIdWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
                 galleryIdWidget.computeSize = function(width) {
-                    return [0, -4];
+                    return [0, 0];
                 };
                 
                 const selectionWidget = this.addWidget(
-                    "text",
+                    "hidden_text",
                     "selection",
                     this.properties.selection || "[]",
                     () => {},
@@ -92,11 +92,16 @@ app.registerExtension({
                     return node_instance.properties["selection"] || "[]";
                 };
                 selectionWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-                selectionWidget.computeSize = function(width) { return [0, -4]; };
+                selectionWidget.computeSize = function(width) { return [0, 0]; };
                 
                 const galleryContainer = document.createElement("div");
                 const uniqueId = `lmm-gallery-${Math.random().toString(36).substring(2, 9)}`;
                 galleryContainer.id = uniqueId;
+
+                galleryContainer.dataset.captureWheel = "true";
+                galleryContainer.addEventListener("wheel", (e) => {
+                     e.stopPropagation();
+                });
                 
                 const folderSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M928 320H488L416 232c-15.1-18.9-38.3-29.9-63.1-29.9H128c-35.3 0-64 28.7-64 64v512c0 35.3 28.7 64 64 64h800c35.3 0 64-28.7 64-64V384c0-35.3-28.7-64-64-64z" fill="#F4D03F"></path></svg>`;
                 const videoSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M895.9 203.4H128.1c-35.3 0-64 28.7-64 64v489.2c0 35.3 28.7 64 64 64h767.8c35.3 0 64-28.7 64-64V267.4c0-35.3-28.7-64-64-64zM384 691.2V332.8L668.1 512 384 691.2z" fill="#FFD700"></path></svg>`;
@@ -106,7 +111,7 @@ app.registerExtension({
                     <style>
                         #${uniqueId} .lmm-container-wrapper { width: 100%; font-family: sans-serif; color: var(--node-text-color); box-sizing: border-box; display: flex; flex-direction: column; height: 100%; }
                         #${uniqueId} .lmm-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; flex-shrink: 0; padding-right: 60px; }
-                        #${uniqueId} .lmm-container-wrapper > .lmm-controls:first-child { margin-top: -90px; }
+                        #${uniqueId} .lmm-container-wrapper > .lmm-controls:first-child { margin-top: -110px; }
                         #${uniqueId} .lmm-controls label { margin-left: 0px; font-size: 12px; white-space: nowrap; }
                         #${uniqueId} .lmm-controls input, #${uniqueId} .lmm-controls select, #${uniqueId} .lmm-controls button { background-color: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 12px; }
                         #${uniqueId} .lmm-path-controls input[type=text] { width: 100%; box-sizing: border-box; }
@@ -129,7 +134,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-breadcrumb-separator { color: #888; margin: 0 2px; user-select: none; }
                         #${uniqueId} .lmm-breadcrumb-ellipsis { color: #888; padding: 0 4px; user-select: none; font-weight: bold; }
                         
-                        #${uniqueId} .lmm-cardholder { position: relative; overflow-y: auto; background: #222; padding: 0; border-radius: 5px; flex-grow: 1; min-height: 100px; width: 100%; transition: opacity 0.2s ease-in-out; }
+                        #${uniqueId} .lmm-cardholder { position: relative; overflow-y: auto; overflow-x: hidden; background: #222; padding: 0; border-radius: 5px; flex-grow: 1; min-height: 0; height: 0; width: 100%; transition: opacity 0.2s ease-in-out; box-sizing: border-box; }
                         #${uniqueId} .lmm-gallery-card { position: absolute; border: 3px solid transparent; border-radius: 8px; box-sizing: border-box; transition: all 0.3s ease; display: flex; flex-direction: column; background-color: var(--comfy-input-bg); }
                         #${uniqueId} .lmm-gallery-card.lmm-selected { border-color: #00FFC9; }
                         #${uniqueId} .lmm-gallery-card.lmm-edit-selected { border-color: #FFD700; box-shadow: 0 0 10px #FFD700; }
@@ -1587,12 +1592,35 @@ app.registerExtension({
                 
                 this.onResize = function(size) {
                     const minHeight = 470;
-                    const minWidth = 700;
+                    const minWidth = 800;
                     if (size[1] < minHeight) size[1] = minHeight;
                     if (size[0] < minWidth) size[0] = minWidth;
+
+                    if (galleryContainer) {
+                        let topOffset = galleryContainer.offsetTop;
+
+                        const approximateHeaderHeight = 120; 
+                        if (topOffset < 20) {
+                            topOffset += approximateHeaderHeight;
+                        }
+
+                        const bottomPadding = 20;
+
+                        const targetHeight = size[1] - topOffset - bottomPadding;
+
+                        galleryContainer.style.height = targetHeight + "px";
+                        galleryContainer.style.width = "100%";
+                    }
+
                     renderBreadcrumb(pathInput.value);
                     debouncedLayout(); 
                 };
+
+                requestAnimationFrame(() => {
+                    if (this.onResize) {
+                        this.onResize(this.size);
+                    }
+                });
                 
                 return r;
             };

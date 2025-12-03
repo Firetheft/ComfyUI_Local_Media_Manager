@@ -16,11 +16,6 @@ import cv2
 import torchaudio
 import subprocess
 import re
-try:
-    from moviepy.editor import VideoFileClip
-except ImportError:
-    print("LocalMediaManager: MoviePy not installed. Video thumbnail generation will be disabled. Please run 'pip install moviepy'.")
-    VideoFileClip = None
 
 VAE_STRIDE = (4, 8, 8)
 PATCH_SIZE = (1, 2, 2)
@@ -59,7 +54,10 @@ def load_config():
 def load_metadata():
     if not os.path.exists(METADATA_FILE): return {}
     try:
-        with open(METADATA_FILE, 'r', encoding='utf-8') as f: return json.load(f)
+        with open(METADATA_FILE, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
+            normalized_metadata = {k.replace("\\", "/"): v for k, v in metadata.items()}
+            return normalized_metadata
     except: return {}
 
 def save_metadata(data):
@@ -106,14 +104,6 @@ def extract_prompts(metadata):
 
         nodes_by_id = {str(n['id']): n for n in workflow['nodes']}
         all_links = workflow.get('links', [])
-        
-        links_origins = {str(l[0]): (str(l[1]), l[2]) for l in all_links}
-        links_to_node = {}
-        for link in all_links:
-            target_id = str(link[3])
-            if target_id not in links_to_node:
-                links_to_node[target_id] = []
-            links_to_node[target_id].append(link)
 
         def find_ground_truth_from_source(origin_node_id, origin_slot_index):
             display_keywords = ['show', 'text', 'preview', 'any']
@@ -204,8 +194,21 @@ def extract_prompts(metadata):
 
 class LocalMediaManagerNode:
     @classmethod
-    def IS_CHANGED(cls, selection, **kwargs):
-        return selection
+    def IS_CHANGED(cls, selection, current_path="", **kwargs):
+        m = hashlib.sha256()
+        m.update(str(selection).encode())
+        m.update(str(current_path).encode())
+
+        try:
+            selections_list = json.loads(selection)
+            for item in selections_list:
+                if 'path' in item and os.path.exists(item['path']):
+                    mtime = os.path.getmtime(item['path'])
+                    m.update(str(mtime).encode())
+        except:
+            pass
+
+        return m.hexdigest()
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -215,15 +218,16 @@ class LocalMediaManagerNode:
                 "unique_id": "UNIQUE_ID",
                 "selection": ("STRING", {"default": "[]", "multiline": True, "forceInput": True}),
                 "gallery_unique_id_widget": ("STRING", {"default": "", "multiline": False}),
+                "current_path": ("STRING", {"default": "", "multiline": False}),
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "LMM_ALL_PATHS", "STRING", "STRING",)
-    RETURN_NAMES = ("image", "paths", "path", "info",)
+    RETURN_TYPES = ("IMAGE", "MASK", "LMM_ALL_PATHS", "STRING", "STRING",)
+    RETURN_NAMES = ("image", "mask", "paths", "path", "info",)
     FUNCTION = "get_selected_media"
     CATEGORY = "📜Asset Gallery/Local"
 
-    def get_selected_media(self, unique_id, gallery_unique_id_widget="", selection="[]"):
+    def get_selected_media(self, unique_id, gallery_unique_id_widget="", selection="[]", current_path=""):
         try:
             selections_list = json.loads(selection)
         except (json.JSONDecodeError, TypeError):
@@ -287,6 +291,38 @@ class LocalMediaManagerNode:
                 if image_tensors:
                     final_image_tensor = torch.cat(image_tensors, dim=0)
         
+        mask_tensor = None
+        if final_image_tensor is not None and final_image_tensor.nelement() > 0:
+            h, w = final_image_tensor.shape[1], final_image_tensor.shape[2]
+
+            if valid_image_paths and final_image_tensor.shape[0] == 1:
+                try:
+                    first_image_path = valid_image_paths[0]
+                    with Image.open(first_image_path) as img:
+                        if img.mode == 'RGBA':
+                            alpha = np.array(img.split()[-1]).astype(np.float32) / 255.0
+                            inverted_alpha = 1.0 - alpha
+                            
+                            if inverted_alpha.shape[0] != h or inverted_alpha.shape[1] != w:
+                                mask_img = Image.fromarray((inverted_alpha * 255).astype(np.uint8))
+                                mask_img = mask_img.resize((w, h), Image.LANCZOS)
+                                inverted_alpha = np.array(mask_img).astype(np.float32) / 255.0
+                                
+                            mask_tensor = torch.from_numpy(inverted_alpha).unsqueeze(0)
+                        else:
+                             mask_tensor = torch.zeros(1, h, w, dtype=torch.float32)
+                except Exception as e:
+                    print(f"LMM: Could not generate mask from image alpha. Error: {e}")
+                    mask_tensor = torch.zeros(1, h, w, dtype=torch.float32)
+            else:
+                 mask_tensor = torch.zeros(final_image_tensor.shape[0], h, w, dtype=torch.float32)
+
+        if final_image_tensor.nelement() == 0:
+             final_image_tensor = torch.zeros(1, 64, 64, 3)
+             mask_tensor = torch.zeros(1, 64, 64)
+        elif mask_tensor is None:
+             mask_tensor = torch.zeros(final_image_tensor.shape[0], final_image_tensor.shape[1], final_image_tensor.shape[2], dtype=torch.float32)
+
         for item in selections_list:
             enriched_item = item.copy()
             if item.get('type') == 'image' and 'path' in item and os.path.exists(item['path']):
@@ -319,12 +355,27 @@ class LocalMediaManagerNode:
         full_selection_json_string = json.dumps(enriched_selection_list, ensure_ascii=False)
 
         single_path_out = ""
+
         if len(selections_list) == 1:
             item = selections_list[0]
             if 'path' in item and os.path.exists(item['path']):
                 single_path_out = item['path']
 
-        return (final_image_tensor, full_selection_json_string, single_path_out, info_string_out,)
+        elif len(selections_list) == 0:
+            if current_path and os.path.isdir(current_path):
+                single_path_out = current_path
+            else:
+                try:
+                    ui_states = load_ui_state()
+                    node_key = f"{gallery_unique_id_widget}_{unique_id}" if gallery_unique_id_widget else None
+                    if node_key and node_key in ui_states:
+                        saved_path = ui_states[node_key].get("last_path", "")
+                        if saved_path and os.path.isdir(saved_path):
+                            single_path_out = saved_path
+                except Exception:
+                    pass
+
+        return (final_image_tensor, mask_tensor, full_selection_json_string, single_path_out, info_string_out,)
 
 def parse_selection_and_get_item(selection_json_str: str, index: int, expected_type: str = None):
     try:
@@ -651,7 +702,8 @@ prompt_server = server.PromptServer.instance
 async def update_metadata(request):
     try:
         data = await request.json()
-        path, rating, tags = data.get("path"), data.get("rating"), data.get("tags")
+        path = data.get("path", "").replace("\\", "/")
+        rating, tags = data.get("rating"), data.get("tags")
         if not path or not os.path.isabs(path): return web.json_response({"status": "error", "message": "Invalid path."}, status=400)
         
         metadata = load_metadata()
@@ -733,9 +785,10 @@ def get_cached_directory_data(directory, force_refresh=False):
     metadata = load_metadata()
 
     for item in os.listdir(directory):
-        full_path = os.path.join(directory, item)
+        raw_full_path = os.path.join(directory, item)
+        full_path = raw_full_path.replace("\\", "/")
         try:
-            stats = os.stat(full_path)
+            stats = os.stat(raw_full_path)
             item_meta = metadata.get(full_path, {})
             item_data = {
                 'path': full_path, 
@@ -1013,13 +1066,20 @@ async def get_thumbnail(request):
 
     try:
         if is_video:
-            if VideoFileClip is None:
-                return web.Response(status=501)
-            with VideoFileClip(filepath) as clip:
-                frame = clip.get_frame(0)
-                img = Image.fromarray(frame)
+            try:
+                video_cap = cv2.VideoCapture(filepath)
+                if not video_cap.isOpened():
+                    raise IOError("Cannot open video file")
+                ret, frame = video_cap.read()
+                if not ret:
+                    raise ValueError("Cannot read frame from video")
+
+                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 img.thumbnail([320, 320], Image.LANCZOS)
                 img.save(cache_path, "WEBP", quality=80)
+            finally:
+                if 'video_cap' in locals() and video_cap.isOpened():
+                    video_cap.release()
         else:
             img = Image.open(filepath)
             img.thumbnail([320, 320], Image.LANCZOS)
