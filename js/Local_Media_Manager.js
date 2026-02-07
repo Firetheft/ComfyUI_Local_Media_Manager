@@ -1796,7 +1796,7 @@ app.registerExtension({
                                     if (currentSearchScopes.includes('input')) dirScopes.push('input/');
                                     if (currentSearchScopes.includes('output')) dirScopes.push('output/');
                                 }
-                                if (dirScopes.length) scopeParts.push(dirScopes.join(', '));
+                                if (dirScopes.length) scopeParts.push([...new Set(dirScopes)].join(', '));
                                 if (currentSearchScopes.includes('saved')) scopeParts.push('all saved paths');
                                 scopeLabel = scopeParts.join(' and ');
                             }
