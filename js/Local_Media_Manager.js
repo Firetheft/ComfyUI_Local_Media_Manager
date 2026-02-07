@@ -16,41 +16,41 @@ function addGitHubIcon(nodeType, url) {
         const y = (LiteGraph.NODE_TITLE_HEIGHT - iconSize) / 2 - LiteGraph.NODE_TITLE_HEIGHT;
 
         this.githubIconRect = [x, y, iconSize, iconSize];
-        
+
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(iconSize / 24, iconSize / 24);
-        
+
         ctx.fillStyle = this.mouseOver && this.mouseOver_github_icon ? "#FFFFFF" : "#888888";
-        
+
         ctx.fill(githubPath);
         ctx.restore();
     };
 
     const onMouseDown = nodeType.prototype.onMouseDown;
-    nodeType.prototype.onMouseDown = function(e, pos, graphcanvas) {
+    nodeType.prototype.onMouseDown = function (e, pos, graphcanvas) {
         if (this.flags.collapsed) {
-             return onMouseDown?.apply(this, arguments);
+            return onMouseDown?.apply(this, arguments);
         }
         if (this.githubIconRect && pos[1] < LiteGraph.NODE_TITLE_HEIGHT) {
             const [x, y, w, h] = this.githubIconRect;
             if (pos[0] > x && pos[0] < x + w && pos[1] > y && pos[1] < y + h) {
                 window.open(url, '_blank');
-                return true; 
+                return true;
             }
         }
         return onMouseDown?.apply(this, arguments);
     };
 
     const onMouseMove = nodeType.prototype.onMouseMove;
-    nodeType.prototype.onMouseMove = function(e, pos, graphcanvas) {
+    nodeType.prototype.onMouseMove = function (e, pos, graphcanvas) {
         if (this.flags.collapsed) {
             return onMouseMove?.apply(this, arguments);
         }
         if (this.githubIconRect && pos[1] < LiteGraph.NODE_TITLE_HEIGHT) {
             const [x, y, w, h] = this.githubIconRect;
             const isOver = (pos[0] > x && pos[0] < x + w && pos[1] > y && pos[1] < y + h);
-            if(this.mouseOver_github_icon !== isOver) {
+            if (this.mouseOver_github_icon !== isOver) {
                 this.mouseOver_github_icon = isOver;
                 this.setDirtyCanvas(true, false);
             }
@@ -63,8 +63,8 @@ function addGitHubIcon(nodeType, url) {
     };
 
     const onMouseLeave = nodeType.prototype.onMouseLeave;
-    nodeType.prototype.onMouseLeave = function(e) {
-        if(this.mouseOver_github_icon) {
+    nodeType.prototype.onMouseLeave = function (e) {
+        if (this.mouseOver_github_icon) {
             this.mouseOver_github_icon = false;
             this.setDirtyCanvas(true, false);
         }
@@ -192,7 +192,7 @@ function setupGlobalMaskEditor() {
     const maskCanvas = document.getElementById("lmm-mask-canvas");
     const maskCtx = maskCanvas.getContext("2d");
     const brushCursor = document.getElementById("lmm-brush-cursor");
-    
+
     let editorState = { zoom: 1, panX: 0, panY: 0, isPanning: false, panStartX: 0, panStartY: 0 };
     let isDrawingMask = false;
     let currentImagePath = "";
@@ -201,9 +201,9 @@ function setupGlobalMaskEditor() {
         content.style.transform = `translate(${editorState.panX}px, ${editorState.panY}px) scale(${editorState.zoom})`;
     };
     const updateCursor = (e) => {
-        if (!e || editorState.isPanning) { 
-            viewport.style.cursor = editorState.isPanning ? "grabbing" : "default"; 
-            brushCursor.style.display = "none"; return; 
+        if (!e || editorState.isPanning) {
+            viewport.style.cursor = editorState.isPanning ? "grabbing" : "default";
+            brushCursor.style.display = "none"; return;
         }
         const rect = viewport.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -223,31 +223,31 @@ function setupGlobalMaskEditor() {
         if (!isDrawingMask) return;
         e.preventDefault();
         const pos = getMousePos(e);
-        
+
         const size = document.getElementById("lmm-mask-brush-size").value;
         const blur = document.getElementById("lmm-mask-brush-blur").value;
 
         maskCtx.lineWidth = size;
-        maskCtx.lineCap = "round"; 
+        maskCtx.lineCap = "round";
         maskCtx.lineJoin = "round";
 
-        maskCtx.shadowBlur = blur; 
-        maskCtx.shadowColor = "white"; 
+        maskCtx.shadowBlur = blur;
+        maskCtx.shadowColor = "white";
 
         maskCtx.globalCompositeOperation = e.shiftKey ? "destination-out" : "source-over";
-        maskCtx.strokeStyle = "white"; 
+        maskCtx.strokeStyle = "white";
         maskCtx.fillStyle = "white";
-        
-        maskCtx.lineTo(pos.x, pos.y); 
+
+        maskCtx.lineTo(pos.x, pos.y);
         maskCtx.stroke();
-        
-        maskCtx.beginPath(); 
-        maskCtx.arc(pos.x, pos.y, maskCtx.lineWidth / 2, 0, Math.PI * 2); 
+
+        maskCtx.beginPath();
+        maskCtx.arc(pos.x, pos.y, maskCtx.lineWidth / 2, 0, Math.PI * 2);
         maskCtx.fill();
-        
-        maskCtx.beginPath(); 
+
+        maskCtx.beginPath();
         maskCtx.moveTo(pos.x, pos.y);
-        
+
         maskCtx.shadowBlur = 0;
     };
 
@@ -261,7 +261,7 @@ function setupGlobalMaskEditor() {
         editorState.zoom = newZoom;
         editorState.panX = (e.clientX - rect.left) - mouseXWorld * editorState.zoom;
         editorState.panY = (e.clientY - rect.top) - mouseYWorld * editorState.zoom;
-        updateTransform(); updateCursor(e); 
+        updateTransform(); updateCursor(e);
         document.getElementById("lmm-mask-info").textContent = `${maskCanvas.width} x ${maskCanvas.height} | ${Math.round(editorState.zoom * 100)}%`;
     });
     viewport.addEventListener("mousedown", (e) => {
@@ -278,32 +278,32 @@ function setupGlobalMaskEditor() {
     });
     window.addEventListener("mouseup", (e) => { editorState.isPanning = false; isDrawingMask = false; maskCtx.beginPath(); updateCursor(e); });
     viewport.addEventListener("contextmenu", (e) => e.preventDefault());
-    document.getElementById("lmm-mask-brush-size").addEventListener("input", (e) => updateCursor({clientX: -1000, clientY: -1000}));
-    
+    document.getElementById("lmm-mask-brush-size").addEventListener("input", (e) => updateCursor({ clientX: -1000, clientY: -1000 }));
+
     document.getElementById("lmm-mask-cancel").onclick = () => { overlay.style.display = "none"; };
-    
+
     document.getElementById("lmm-mask-save").onclick = async () => {
         const dataUrl = maskCanvas.toDataURL("image/png");
         const btn = document.getElementById("lmm-mask-save"); btn.textContent = "Saving..."; btn.disabled = true;
         try {
             await api.fetchApi("/local_image_gallery/save_mask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_path: currentImagePath, mask_data: dataUrl }) });
-            if(lmm_mask_on_save_callback) lmm_mask_on_save_callback();
+            if (lmm_mask_on_save_callback) lmm_mask_on_save_callback();
             overlay.style.display = "none";
-        } catch(e) { alert("Failed: " + e); } finally { btn.textContent = "Save Mask"; btn.disabled = false; }
+        } catch (e) { alert("Failed: " + e); } finally { btn.textContent = "Save Mask"; btn.disabled = false; }
     };
-    
+
     document.getElementById("lmm-mask-clear").onclick = async () => {
-         maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     };
-    
+
     document.getElementById("lmm-mask-invert").onclick = () => {
         const imgData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
         const d = imgData.data;
         for (let i = 0; i < d.length; i += 4) {
-            d[i+3] = 255 - d[i+3];
+            d[i + 3] = 255 - d[i + 3];
             d[i] = 255;
-            d[i+1] = 255;
-            d[i+2] = 255;
+            d[i + 1] = 255;
+            d[i + 2] = 255;
         }
         maskCtx.putImageData(imgData, 0, 0);
     };
@@ -328,13 +328,13 @@ function setupGlobalMaskEditor() {
     };
 
     displaySelect.addEventListener("change", updateMaskVisuals);
-    
+
     updateMaskVisuals();
 
     window.lmmOpenMaskEditor = async (path, onSaveCallback) => {
         currentImagePath = path;
         lmm_mask_on_save_callback = onSaveCallback;
-        
+
         const timestamp = new Date().getTime();
         const img = new Image();
         img.onload = async () => {
@@ -351,7 +351,7 @@ function setupGlobalMaskEditor() {
             document.getElementById("lmm-mask-info").textContent = `${img.width} x ${img.height} | ${Math.round(editorState.zoom * 100)}%`;
 
             try {
-                const res = await api.fetchApi("/local_image_gallery/get_mask_path", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ image_path: path }) });
+                const res = await api.fetchApi("/local_image_gallery/get_mask_path", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_path: path }) });
                 const data = await res.json();
 
                 maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
@@ -360,17 +360,17 @@ function setupGlobalMaskEditor() {
                     const mImg = new Image();
                     mImg.onload = () => {
                         maskCtx.drawImage(mImg, 0, 0);
-                        
-                        const iD = maskCtx.getImageData(0,0,maskCanvas.width, maskCanvas.height);
-                        for(let i=0; i<iD.data.length; i+=4) { 
+
+                        const iD = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                        for (let i = 0; i < iD.data.length; i += 4) {
                             const currentRed = iD.data[i];
-                            const currentAlpha = iD.data[i+3];
+                            const currentAlpha = iD.data[i + 3];
                             const finalAlpha = currentAlpha < 255 ? currentAlpha : currentRed;
 
                             iD.data[i] = 255;
-                            iD.data[i+1] = 255;
-                            iD.data[i+2] = 255;
-                            iD.data[i+3] = finalAlpha;
+                            iD.data[i + 1] = 255;
+                            iD.data[i + 2] = 255;
+                            iD.data[i + 3] = finalAlpha;
                         }
                         maskCtx.putImageData(iD, 0, 0);
                     };
@@ -381,7 +381,7 @@ function setupGlobalMaskEditor() {
                     tempCanvas.height = img.height;
                     const tempCtx = tempCanvas.getContext('2d');
                     tempCtx.drawImage(img, 0, 0);
-                    
+
                     const originalData = tempCtx.getImageData(0, 0, img.width, img.height).data;
                     const maskImageData = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
                     const maskPixels = maskImageData.data;
@@ -420,55 +420,55 @@ app.registerExtension({
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated?.apply(this, arguments);
-                
+
                 if (!this.properties || !this.properties.gallery_unique_id) {
                     if (!this.properties) { this.properties = {}; }
                     this.properties.gallery_unique_id = "gallery-" + Math.random().toString(36).substring(2, 11);
                 }
-                
+
                 const node_instance = this;
-                
+
                 const galleryIdWidget = this.addWidget(
                     "hidden_text",
                     "gallery_unique_id_widget",
                     this.properties.gallery_unique_id,
-                    () => {},
+                    () => { },
                     {}
                 );
                 galleryIdWidget.serializeValue = () => {
                     return node_instance.properties.gallery_unique_id;
                 };
-                galleryIdWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-                galleryIdWidget.computeSize = function(width) {
+                galleryIdWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+                galleryIdWidget.computeSize = function (width) {
                     return [0, 0];
                 };
-                
+
                 const selectionWidget = this.addWidget(
                     "hidden_text",
                     "selection",
                     this.properties.selection || "[]",
-                    () => {},
+                    () => { },
                     { multiline: true }
                 );
                 selectionWidget.serializeValue = () => {
                     return node_instance.properties["selection"] || "[]";
                 };
-                selectionWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-                selectionWidget.computeSize = function(width) { return [0, 0]; };
-                
+                selectionWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+                selectionWidget.computeSize = function (width) { return [0, 0]; };
+
                 const galleryContainer = document.createElement("div");
                 const uniqueId = `lmm-gallery-${Math.random().toString(36).substring(2, 9)}`;
                 galleryContainer.id = uniqueId;
 
                 galleryContainer.dataset.captureWheel = "true";
                 galleryContainer.addEventListener("wheel", (e) => {
-                     e.stopPropagation();
+                    e.stopPropagation();
                 });
-                
+
                 const folderSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M928 320H488L416 232c-15.1-18.9-38.3-29.9-63.1-29.9H128c-35.3 0-64 28.7-64 64v512c0 35.3 28.7 64 64 64h800c35.3 0 64-28.7 64-64V384c0-35.3-28.7-64-64-64z" fill="#F4D03F"></path></svg>`;
                 const videoSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M895.9 203.4H128.1c-35.3 0-64 28.7-64 64v489.2c0 35.3 28.7 64 64 64h767.8c35.3 0 64-28.7 64-64V267.4c0-35.3-28.7-64-64-64zM384 691.2V332.8L668.1 512 384 691.2z" fill="#FFD700"></path></svg>`;
                 const audioSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M768 256H256c-35.3 0-64 28.7-64 64v384c0 35.3 28.7 64 64 64h512c35.3 0 64-28.7 64-64V320c0-35.3-28.7-64-64-64zM512 665.6c-84.8 0-153.6-68.8-153.6-153.6S427.2 358.4 512 358.4s153.6 68.8 153.6 153.6-68.8 153.6-153.6 153.6z" fill="#A9DFBF"></path><path d="M512 409.6c-56.5 0-102.4 45.9-102.4 102.4s45.9 102.4 102.4 102.4 102.4-45.9 102.4-102.4-45.9-102.4-102.4-102.4z" fill="#A9DFBF"></path></svg>`;
-                
+
                 galleryContainer.innerHTML = `
                     <style>
                         #${uniqueId} .lmm-container-wrapper { width: 100%; font-family: sans-serif; color: var(--node-text-color); box-sizing: border-box; display: flex; flex-direction: column; height: 100%; }
@@ -721,15 +721,15 @@ app.registerExtension({
                 `;
                 this.addDOMWidget("local_image_gallery", "div", galleryContainer, {});
                 this.size = [800, 670];
-                
+
                 const cardholder = galleryContainer.querySelector(".lmm-cardholder");
                 const controls = galleryContainer.querySelector(".lmm-container-wrapper");
                 const placeholder = galleryContainer.querySelector(".lmm-gallery-placeholder");
-                
+
                 const breadcrumbContainer = controls.querySelector(".lmm-breadcrumb-container");
                 const breadcrumbEl = breadcrumbContainer.querySelector(".lmm-breadcrumb");
                 const pathInput = breadcrumbContainer.querySelector("input[type='text']");
-                
+
                 const pathPresets = controls.querySelector(".lmm-path-presets");
                 const addPathButton = controls.querySelector(".lmm-add-path-button");
                 const removePathButton = controls.querySelector(".lmm-remove-path-button");
@@ -763,9 +763,9 @@ app.registerExtension({
                         const scope = icon.dataset.scope;
                         if (activeScopes.has(scope)) activeScopes.delete(scope);
                         else activeScopes.add(scope);
-                    updateScopeDisplay();
-                    if (searchInput.value.trim()) saveStateAndReload(false);
-                });
+                        updateScopeDisplay();
+                        if (searchInput.value.trim()) saveStateAndReload(false);
+                    });
                 });
                 scopeAllToggle.addEventListener('click', () => {
                     const allScopes = ['current', 'input', 'output', 'saved'];
@@ -774,10 +774,10 @@ app.registerExtension({
                     } else {
                         allScopes.forEach(s => activeScopes.add(s));
                     }
-                        updateScopeDisplay();
-                        if (searchInput.value.trim()) saveStateAndReload(false);
-                    });
-                
+                    updateScopeDisplay();
+                    if (searchInput.value.trim()) saveStateAndReload(false);
+                });
+
                 // Scope icon tooltips — appended to body to avoid transform containment
                 const scopeTip = document.createElement('div');
                 Object.assign(scopeTip.style, {
@@ -808,7 +808,7 @@ app.registerExtension({
                             const show = paths.slice(0, 10);
                             detail = show.map(p => d(p)).join('\n');
                             if (paths.length > 10) detail += '\n' + d(`  \u2026and ${paths.length - 10} more`);
-                    }
+                        }
                         return detail + '\n' + t('Include saved paths in search scope');
                     }
                     if (el.classList.contains('lmm-scope-all')) return t('Toggle all search scopes');
@@ -832,7 +832,7 @@ app.registerExtension({
                     el.addEventListener('mouseenter', () => showScopeTip(el));
                     el.addEventListener('mouseleave', hideScopeTip);
                 });
-                
+
                 const clearSearchButton = controls.querySelector(".lmm-clear-search-button");
                 const tagEditor = controls.querySelector(".lmm-tag-editor");
                 const tagEditorInput = controls.querySelector(".lmm-tag-editor-input");
@@ -845,7 +845,7 @@ app.registerExtension({
                 const renameContainer = controls.querySelector(".lmm-rename-container");
                 const renameInput = controls.querySelector(".lmm-rename-input");
                 const renameBtn = controls.querySelector(".lmm-rename-btn");
-                
+
                 const renderBreadcrumb = (path) => {
                     breadcrumbEl.innerHTML = '';
                     if (!path || path === "Selected Items") {
@@ -855,13 +855,13 @@ app.registerExtension({
                         breadcrumbEl.appendChild(staticItem);
                         return;
                     }
-                    
+
                     path = path.replace(/\\/g, '/');
                     const parts = path.split('/').filter(p => p);
-                    
+
                     let builtPath = '';
                     const elements = [];
-                    
+
                     if (path.match(/^[a-zA-Z]:\//)) {
                         const drive = parts.shift();
                         builtPath = drive + '/';
@@ -878,52 +878,52 @@ app.registerExtension({
                         rootEl.dataset.path = builtPath;
                         elements.push(rootEl);
                     }
-                    
+
                     parts.forEach((part, index) => {
                         const separator = document.createElement('span');
                         separator.className = 'lmm-breadcrumb-separator';
                         separator.textContent = '>';
                         elements.push(separator);
-                        
+
                         let currentPartPath = builtPath + part + '/';
                         builtPath = currentPartPath;
-                        
+
                         const partEl = document.createElement('span');
                         partEl.className = 'lmm-breadcrumb-item';
                         partEl.textContent = part;
                         partEl.dataset.path = currentPartPath;
                         elements.push(partEl);
                     });
-                    
+
                     breadcrumbEl.append(...elements);
-                    
+
                     requestAnimationFrame(() => {
                         const containerWidth = breadcrumbEl.clientWidth;
                         let currentWidth = 0;
                         elements.forEach(el => currentWidth += el.offsetWidth);
-                        
+
                         if (currentWidth > containerWidth) {
                             const toRemove = [];
                             let removableWidth = currentWidth - containerWidth;
-                            
+
                             for (let i = elements.length - 3; i > 1; i--) {
-                               const el = elements[i];
+                                const el = elements[i];
                                 if (removableWidth > 0 && !(el.classList.contains('lmm-breadcrumb-item') && i === elements.length - 1)) {
-                                     removableWidth -= el.offsetWidth;
-                                     toRemove.push(el);
+                                    removableWidth -= el.offsetWidth;
+                                    toRemove.push(el);
                                 } else {
-                                     break;
+                                    break;
                                 }
                             }
-                            
+
                             if (toRemove.length > 0) {
                                 const ellipsis = document.createElement('span');
                                 ellipsis.className = 'lmm-breadcrumb-ellipsis';
                                 ellipsis.textContent = '...';
-                                if(elements[1]) { 
+                                if (elements[1]) {
                                     elements[1].insertAdjacentElement('afterend', ellipsis);
                                     const nextSeparator = elements[1].nextElementSibling.nextElementSibling;
-                                    if(nextSeparator && nextSeparator.classList.contains('lmm-breadcrumb-separator')) {
+                                    if (nextSeparator && nextSeparator.classList.contains('lmm-breadcrumb-separator')) {
                                         nextSeparator.remove();
                                     }
                                 }
@@ -931,9 +931,9 @@ app.registerExtension({
                             }
                         }
                     });
-                    
+
                 };
-                
+
                 breadcrumbEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     // If search is active, clicking breadcrumb cancels search
@@ -959,19 +959,19 @@ app.registerExtension({
                         pathInput.select();
                     }
                 });
-                
+
                 const switchToBreadcrumb = (forceReload = true) => {
                     pathInput.style.display = 'none';
                     breadcrumbEl.style.display = 'flex';
                     const currentPath = pathInput.value.trim();
-                    if(forceReload && lastKnownPath !== currentPath) {
-                       lastKnownPath = currentPath;
-                       saveStateAndReload(true);
+                    if (forceReload && lastKnownPath !== currentPath) {
+                        lastKnownPath = currentPath;
+                        saveStateAndReload(true);
                     } else {
-                       renderBreadcrumb(currentPath);
+                        renderBreadcrumb(currentPath);
                     }
                 };
-                
+
                 pathInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         switchToBreadcrumb();
@@ -982,31 +982,31 @@ app.registerExtension({
                         e.preventDefault();
                     }
                 });
-                
+
                 pathInput.addEventListener('blur', () => {
-                   switchToBreadcrumb();
+                    switchToBreadcrumb();
                 });
-                
+
                 const updateBatchActionButtonsState = () => {
                     const hasSelection = selection.length > 0;
                     batchDeleteBtn.disabled = !hasSelection;
                     batchMoveBtn.disabled = !hasSelection;
                 };
-                
+
                 let isLoading = false, currentPage = 1, totalPages = 1, parentDir = null;
                 let selection = [];
                 let showSelectedMode = false;
                 let lastKnownPath = "";
                 let selectedCardsForEditing = new Set();
-                
-                let allItems = []; 
+
+                let allItems = [];
                 let layoutData = [];
                 const VIRTUAL_SCROLL_PADDING = 500;
                 let columnCount = 0;
                 let actualCardWidth = 0;
-                
+
                 const debounce = (func, delay) => { let timeoutId; return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func.apply(this, args), delay); }; };
-                
+
                 const calculateFullLayout = () => {
                     const minCardWidth = 150, gap = 5, containerWidth = cardholder.clientWidth;
                     if (containerWidth === 0 || allItems.length === 0) {
@@ -1014,9 +1014,9 @@ app.registerExtension({
                         layoutData = [];
                         return;
                     }
-                    
+
                     placeholder.style.display = 'none';
-                    
+
                     columnCount = Math.max(1, Math.floor(containerWidth / (minCardWidth + gap)));
                     const totalGapSpace = (columnCount - 1) * gap;
                     actualCardWidth = (containerWidth - totalGapSpace) / columnCount;
@@ -1035,16 +1035,16 @@ app.registerExtension({
                     }
 
                     layoutData = allItems.map((item, index) => {
-                        let aspectRatio = item.aspectRatio || 1.0; 
+                        let aspectRatio = item.aspectRatio || 1.0;
 
                         if (!isFinite(aspectRatio) || aspectRatio <= 0) {
                             aspectRatio = 1.0;
                         }
-                        
+
                         let imagePartHeight = actualCardWidth / aspectRatio;
-                        
+
                         if (item.type === 'image' || item.type === 'video') {
-                            imagePartHeight = Math.max(imagePartHeight, 100); 
+                            imagePartHeight = Math.max(imagePartHeight, 100);
 
                             const tags = item.tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
                             const workflowTextBadge = item.has_workflow ? `<div class="lmm-workflow-text-badge">Workflow</div>` : '';
@@ -1060,16 +1060,16 @@ app.registerExtension({
                                 </div>
                             `;
                             measuringDiv.innerHTML = infoPanelHTML;
-                            
+
                             const infoPanelHeight = measuringDiv.querySelector('.lmm-card-info-panel').offsetHeight + 2;
                             var cardHeight = imagePartHeight + infoPanelHeight;
                         } else {
-                            var cardHeight = 150; 
+                            var cardHeight = 150;
                         }
-                        
+
                         const minHeight = Math.min(...columnHeights);
                         const columnIndex = columnHeights.indexOf(minHeight);
-                        
+
                         const position = {
                             left: columnIndex * (actualCardWidth + gap),
                             top: minHeight,
@@ -1077,68 +1077,68 @@ app.registerExtension({
                             height: cardHeight,
                             columnIndex: columnIndex
                         };
-                        
+
                         columnHeights[columnIndex] += cardHeight + gap;
                         return position;
                     });
-                    
+
                     measuringDiv.innerHTML = "";
-                    
+
                     const totalHeight = Math.max(...columnHeights);
                     cardholder.style.height = `${totalHeight}px`;
-                    
+
                     updateVisibleItemsAndRender();
                 };
-                
+
                 const debouncedLayout = debounce(calculateFullLayout, 50);
-                
+
                 const updateVisibleItemsAndRender = () => {
                     const scrollTop = cardholder.scrollTop;
                     const viewHeight = cardholder.clientHeight;
                     const viewStart = scrollTop - VIRTUAL_SCROLL_PADDING;
                     const viewEnd = scrollTop + viewHeight + VIRTUAL_SCROLL_PADDING;
-                    
+
                     const newVisibleItems = [];
                     allItems.forEach((item, index) => {
                         const itemLayout = layoutData[index];
                         if (!itemLayout) return;
-                        
+
                         const itemTop = itemLayout.top;
                         const itemBottom = itemLayout.top + itemLayout.height;
-                        
+
                         if (itemBottom > viewStart && itemTop < viewEnd) {
                             newVisibleItems.push({ item, index, layout: itemLayout });
                         }
                     });
-                    
+
                     const existingCards = new Map(
                         Array.from(cardholder.querySelectorAll('.lmm-gallery-card')).map(card => [card.dataset.path, card])
                     );
                     const visiblePaths = new Set(newVisibleItems.map(vi => vi.item.path));
-                    
+
                     existingCards.forEach((card, path) => {
                         if (!visiblePaths.has(path)) {
                             card.remove();
                         }
                     });
-                    
+
                     newVisibleItems.forEach(({ item, index, layout }) => {
                         let card = existingCards.get(item.path);
                         if (!card) {
                             card = createCardElement(item);
                             cardholder.appendChild(card);
                         }
-                        
+
                         card.style.left = `${layout.left}px`;
                         card.style.top = `${layout.top}px`;
                         card.style.width = `${layout.width}px`;
-                        
+
                         if (selection.some(sel => sel.path === item.path)) {
                             card.classList.add('lmm-selected');
                         } else {
                             card.classList.remove('lmm-selected');
                         }
-                        
+
                         if (selectedCardsForEditing.has(item.path)) {
                             card.classList.add('lmm-edit-selected');
                         } else {
@@ -1147,10 +1147,10 @@ app.registerExtension({
                     });
                     renderSelectionBadges();
                 }
-                
+
                 new ResizeObserver(debouncedLayout).observe(cardholder);
                 new ResizeObserver(() => renderBreadcrumb(pathInput.value)).observe(breadcrumbContainer);
-                
+
                 async function setUiState(nodeId, state) {
                     const galleryId = this.properties.gallery_unique_id;
                     try {
@@ -1159,9 +1159,9 @@ app.registerExtension({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ node_id: nodeId, gallery_id: galleryId, state: state }),
                         });
-                    } catch(e) { console.error("LocalMediaManager: Failed to set UI state", e); }
+                    } catch (e) { console.error("LocalMediaManager: Failed to set UI state", e); }
                 }
-                
+
                 async function updateMetadata(path, { rating, tags }) {
                     try {
                         let payload = { path };
@@ -1170,18 +1170,18 @@ app.registerExtension({
                         await api.fetchApi("/local_image_gallery/update_metadata", {
                             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
                         });
-                    } catch(e) { console.error("Failed to update metadata:", e); }
+                    } catch (e) { console.error("Failed to update metadata:", e); }
                 }
-                
+
                 async function savePaths() {
                     const paths = Array.from(pathPresets.options).map(o => o.value);
                     try {
                         await api.fetchApi("/local_image_gallery/save_paths", {
                             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths }),
                         });
-                    } catch(e) { console.error("Failed to save paths:", e); }
+                    } catch (e) { console.error("Failed to save paths:", e); }
                 }
-                
+
                 async function loadAllTags() {
                     try {
                         const response = await api.fetchApi("/local_image_gallery/get_all_tags");
@@ -1199,21 +1199,21 @@ app.registerExtension({
                                 multiSelectTagDropdown.appendChild(label);
                             });
                         }
-                    } catch(e) { console.error("Failed to load all tags:", e); }
+                    } catch (e) { console.error("Failed to load all tags:", e); }
                 }
-                
+
                 function updateCardTagsUI(card) {
                     const tagListEl = card.querySelector('.lmm-tag-list');
                     if (!tagListEl) return;
-                    
+
                     const tags = card.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : [];
                     tagListEl.innerHTML = tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
                 }
-                
+
                 function renderSelectionBadges() {
                     galleryContainer.querySelectorAll('.lmm-selection-badge').forEach(badge => badge.remove());
                     const visibleSelectedCards = Array.from(cardholder.querySelectorAll('.lmm-gallery-card.lmm-selected'));
-                    
+
                     visibleSelectedCards.forEach(card => {
                         const path = card.dataset.path;
                         const index = selection.findIndex(item => item.path === path);
@@ -1222,23 +1222,23 @@ app.registerExtension({
                             badge.className = 'lmm-selection-badge';
                             badge.textContent = index;
                             const mediaWrapper = card.querySelector('.lmm-card-media-wrapper');
-                            if(mediaWrapper) mediaWrapper.appendChild(badge);
+                            if (mediaWrapper) mediaWrapper.appendChild(badge);
                         }
                     });
                 }
-                
+
                 function renderTagEditor() {
                     tagEditorList.innerHTML = "";
                     selectedCountEl.textContent = selectedCardsForEditing.size;
-                    
+
                     if (selectedCardsForEditing.size === 0) {
                         tagEditor.classList.remove("lmm-visible");
                         renameContainer.style.display = "none";
                         return;
                     }
-                    
+
                     const itemsToEdit = allItems.filter(item => selectedCardsForEditing.has(item.path));
-                    
+
                     if (itemsToEdit.length === 1) {
                         const singleItem = itemsToEdit[0];
                         const filename = singleItem.path.split(/[/\\]/).pop();
@@ -1247,10 +1247,10 @@ app.registerExtension({
                     } else {
                         renameContainer.style.display = "none";
                     }
-                    
+
                     const allTags = itemsToEdit.map(item => item.tags || []);
                     const commonTags = allTags.length > 0 ? allTags.reduce((acc, tags) => acc.filter(tag => tags.includes(tag))) : [];
-                    
+
                     commonTags.forEach(tag => {
                         const tagEl = document.createElement("span");
                         tagEl.className = "lmm-tag";
@@ -1260,23 +1260,23 @@ app.registerExtension({
                         removeEl.textContent = " ⓧ";
                         removeEl.onclick = async (e) => {
                             e.stopPropagation();
-                            
+
                             const updatePromises = itemsToEdit.map(async (item) => {
                                 const newTags = item.tags.filter(t => t !== tag);
-                                item.tags = newTags; 
+                                item.tags = newTags;
                                 await updateMetadata(item.path, { tags: newTags });
-                                
+
                                 const cardInDom = cardholder.querySelector(`.lmm-gallery-card[data-path="${CSS.escape(item.path)}"]`);
                                 if (cardInDom) {
                                     cardInDom.dataset.tags = newTags.join(',');
                                     updateCardTagsUI(cardInDom);
                                 }
                             });
-                            
+
                             await Promise.all(updatePromises);
                             await loadAllTags();
                             renderTagEditor();
-                            
+
                             if (tagFilterInput.value.trim()) {
                                 saveStateAndReload(false);
                             }
@@ -1284,10 +1284,10 @@ app.registerExtension({
                         tagEl.appendChild(removeEl);
                         tagEditorList.appendChild(tagEl);
                     });
-                    
+
                     tagEditor.classList.add("lmm-visible");
                 }
-                
+
                 const createCardElement = (item) => {
                     const card = document.createElement("div");
                     card.className = "lmm-gallery-card";
@@ -1296,7 +1296,7 @@ app.registerExtension({
                     card.dataset.tags = item.tags.join(',');
                     card.dataset.rating = item.rating;
                     card.title = item.name;
-                    
+
                     let mediaHTML = "";
                     if (item.type === 'dir') {
                         mediaHTML = `<div class="lmm-card-media-wrapper"><div class="lmm-folder-card"><div class="lmm-folder-icon">${folderSVG}</div><div class="lmm-folder-name">${item.name}</div></div></div>`;
@@ -1308,15 +1308,15 @@ app.registerExtension({
                         mediaHTML = `<div class="lmm-card-media-wrapper"><div class="lmm-audio-card"><div class="lmm-audio-icon">${audioSVG}</div><div class="lmm-audio-name">${item.name}</div></div></div>`;
                     }
                     card.innerHTML = mediaHTML;
-                    
+
                     if (item.type === 'image' || item.type === 'video') {
                         const infoPanel = document.createElement("div");
                         infoPanel.className = 'lmm-card-info-panel';
                         const stars = Array.from({ length: 5 }, (_, i) => `<span class="lmm-star" data-value="${i + 1}">☆</span>`).join('');
                         const tags = item.tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
-                        
+
                         const workflowTextBadge = item.has_workflow ? `<div class="lmm-workflow-text-badge" title="Click to load workflow">Workflow</div>` : '';
-                        
+
                         infoPanel.innerHTML = `
                             <div class="lmm-info-top-row">
                                 <div class="lmm-star-rating">${stars}</div>
@@ -1326,25 +1326,25 @@ app.registerExtension({
                             <div class="edit-tags-btn">✏️</div>
                         `;
                         card.appendChild(infoPanel);
-                        
+
                         if (item.has_workflow) {
                             const workflowTextEl = card.querySelector(".lmm-workflow-text-badge");
                             if (workflowTextEl) {
                                 workflowTextEl.addEventListener("click", async (e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    
+
                                     workflowTextEl.style.backgroundColor = '#4CAF50';
                                     workflowTextEl.style.color = 'white';
                                     workflowTextEl.textContent = "Loading...";
-                                    
+
                                     try {
                                         const response = await api.fetchApi(`/local_image_gallery/view?filepath=${encodeURIComponent(item.path)}`);
                                         const blob = await response.blob();
                                         const file = new File([blob], item.name, { type: blob.type });
-                                        
+
                                         app.handleFile(file);
-                                        
+
                                         setTimeout(() => {
                                             workflowTextEl.style.backgroundColor = 'rgba(0,0,0,0.4)';
                                             workflowTextEl.style.color = '#FFD700';
@@ -1359,7 +1359,7 @@ app.registerExtension({
                                 });
                             }
                         }
-                        
+
                         const editBtn = infoPanel.querySelector(".edit-tags-btn");
                         editBtn.addEventListener("click", (e) => {
                             e.stopPropagation();
@@ -1385,7 +1385,7 @@ app.registerExtension({
                             }
                             renderTagEditor();
                         });
-                        
+
                         const starRating = infoPanel.querySelector('.lmm-star-rating');
                         const starsList = starRating.querySelectorAll('.lmm-star');
                         const rating = parseInt(item.rating || 0);
@@ -1396,7 +1396,7 @@ app.registerExtension({
                             }
                         });
                     }
-                    
+
                     const img = card.querySelector("img");
                     if (img) {
                         img.onload = () => {
@@ -1410,28 +1410,28 @@ app.registerExtension({
                             }
                         };
                         img.onerror = () => {
-                             const itemIndex = allItems.findIndex(i => i.path === item.path);
-                             if (itemIndex > -1 && !allItems[itemIndex].aspectRatio) {
-                                allItems[itemIndex].aspectRatio = 1.0; 
+                            const itemIndex = allItems.findIndex(i => i.path === item.path);
+                            if (itemIndex > -1 && !allItems[itemIndex].aspectRatio) {
+                                allItems[itemIndex].aspectRatio = 1.0;
                                 debouncedLayout();
-                             }
+                            }
                         };
                     }
-                    
+
                     return card;
                 };
-                
+
                 const fetchImages = async (page = 1, append = false, forceRefresh = false) => {
                     if (isLoading) return;
                     isLoading = true;
                     updateShowSelectedButtonUI();
-                    
+
                     if (!append) {
                         cardholder.style.opacity = 0;
                         await new Promise(resolve => setTimeout(resolve, 200));
                         currentPage = 1;
                     }
-                    
+
                     if (showSelectedMode) {
                         if (selection.length === 0) {
                             placeholder.textContent = "No items selected.";
@@ -1442,24 +1442,24 @@ app.registerExtension({
                             isLoading = false;
                             return;
                         }
-                        
+
                         placeholder.textContent = "Loading selected items...";
                         placeholder.style.display = 'block';
                         try {
                             const response = await api.fetchApi("/local_image_gallery/get_selected_items", {
                                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ selection: selection }),
                             });
-                            
+
                             if (!response.ok) { const errorData = await response.json(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`); }
-                            
+
                             const api_data = await response.json();
                             allItems = api_data.items || [];
                             renderBreadcrumb("Selected Items");
                             breadcrumbEl.style.pointerEvents = "none";
                             upButton.disabled = true;
-                            
+
                             calculateFullLayout();
-                            
+
                         } catch (error) {
                             placeholder.textContent = `Error: ${error.message}`;
                             placeholder.style.color = 'red';
@@ -1469,9 +1469,9 @@ app.registerExtension({
                         }
                         return;
                     }
-                    
+
                     breadcrumbEl.style.pointerEvents = "auto";
-                    
+
                     const directory = pathInput.value;
                     const showImages = showImagesCheckbox.checked;
                     const showVideos = showVideosCheckbox.checked;
@@ -1507,20 +1507,20 @@ app.registerExtension({
                     }
                     let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${searchMode}&filter_mode=${filterMode}&force_refresh=${forceRefresh}&search_query=${encodeURIComponent(currentSearchQuery)}`;
                     currentSearchScopes.forEach(s => { url += `&search_scope=${encodeURIComponent(s)}`; });
-                    
+
                     if (selection.length > 0) {
                         selection.forEach(item => { url += `&selected_paths=${encodeURIComponent(item.path)}`; });
                     }
-                    
+
                     try {
                         const response = await api.fetchApi(url);
                         if (!response.ok) { const errorData = await response.json(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`); }
                         const api_data = await response.json();
                         const items = api_data.items || [];
-                        
+
                         totalPages = api_data.total_pages;
                         parentDir = api_data.parent_directory;
-                        
+
                         if (!api_data.is_global_search) {
                             pathInput.value = api_data.current_directory;
                             lastKnownPath = api_data.current_directory;
@@ -1567,13 +1567,13 @@ app.registerExtension({
                         } else {
                             placeholder.style.display = 'none';
                         }
-                        
+
                         calculateFullLayout();
-                        
+
                         cardholder.style.opacity = 1;
                         currentPage = page;
-                        
-                    } catch (error) { 
+
+                    } catch (error) {
                         placeholder.textContent = `Error: ${error.message}`;
                         placeholder.style.color = 'red';
                         placeholder.style.display = 'block';
@@ -1581,24 +1581,24 @@ app.registerExtension({
                         calculateFullLayout();
                         cardholder.style.opacity = 1;
                     }
-                    finally { 
+                    finally {
                         isLoading = false;
                     }
                 };
-                
+
                 cardholder.addEventListener('click', async (event) => {
                     const card = event.target.closest('.lmm-gallery-card');
                     if (!card) return;
-                    
+
                     if (event.target.classList.contains('lmm-star')) {
                         event.stopPropagation();
                         const newRating = parseInt(event.target.dataset.value);
                         const currentRating = parseInt(card.dataset.rating || 0);
                         const finalRating = newRating === currentRating ? 0 : newRating;
-                        
+
                         const itemData = allItems.find(i => i.path === card.dataset.path);
-                        if(itemData) itemData.rating = finalRating;
-                        
+                        if (itemData) itemData.rating = finalRating;
+
                         card.dataset.rating = finalRating;
                         await updateMetadata(card.dataset.path, { rating: finalRating });
                         const starRating = card.querySelector('.lmm-star-rating');
@@ -1629,10 +1629,10 @@ app.registerExtension({
                         pathPresets.selectedIndex = 0;
                         return;
                     }
-                    
+
                     if (['image', 'video', 'audio'].includes(type)) {
                         const selectionIndex = selection.findIndex(item => item.path === path);
-                        
+
                         if (event.ctrlKey) {
                             if (selectionIndex > -1) {
                                 selection.splice(selectionIndex, 1);
@@ -1651,33 +1651,33 @@ app.registerExtension({
                                 card.classList.add('lmm-selected');
                             }
                         }
-                        
+
                         renderSelectionBadges();
-                        
+
                         const selectionJson = JSON.stringify(selection);
                         this.setProperty("selection", selectionJson);
                         const widget = this.widgets.find(w => w.name === "selection");
                         if (widget) { widget.value = selectionJson; }
-                        
+
                         setUiState.call(this, this.id, { selection: selection });
                         updateBatchActionButtonsState();
-                        
+
                     }
                 });
-                
+
                 cardholder.addEventListener('dblclick', (event) => {
                     const card = event.target.closest('.lmm-gallery-card');
                     if (!card || !['image', 'video', 'audio'].includes(card.dataset.type)) return;
-                    
+
                     const currentMediaList = allItems.filter(item => ['image', 'video', 'audio'].includes(item.type));
                     const clickedPath = card.dataset.path;
                     const startIndex = currentMediaList.findIndex(item => item.path === clickedPath);
-                    
+
                     if (startIndex !== -1) {
                         showMediaAtIndex(startIndex, currentMediaList);
                     }
                 });
-                
+
                 const lightbox = document.getElementById('global-image-lightbox');
                 const lightboxImg = lightbox.querySelector("img");
                 const lightboxVideo = lightbox.querySelector("video");
@@ -1687,19 +1687,19 @@ app.registerExtension({
                 let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
                 let lightboxMediaList = [];
                 let lightboxCurrentIndex = -1;
-                
+
                 function setTransform() { lightboxImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`; }
                 function resetLightboxState() { scale = 1; pointX = 0; pointY = 0; setTransform(); }
-                
+
                 function showMediaAtIndex(index, mediaList) {
                     lightboxMediaList = mediaList;
                     if (index < 0 || index >= lightboxMediaList.length) return;
                     lightboxCurrentIndex = index;
                     const media = lightboxMediaList[index];
-                    
+
                     resetLightboxState();
                     lightbox.style.display = 'flex';
-                    
+
                     const dimensionsEl = lightbox.querySelector(".lightbox-dimensions");
                     lightboxImg.style.display = 'none';
                     lightboxVideo.style.display = 'none';
@@ -1707,7 +1707,7 @@ app.registerExtension({
                     dimensionsEl.style.display = 'none';
                     lightboxVideo.pause();
                     lightboxAudio.pause();
-                    
+
                     if (media.type === 'image') {
                         lightboxImg.style.display = 'block';
                         lightboxImg.src = `/local_image_gallery/view?filepath=${encodeURIComponent(media.path)}`;
@@ -1726,14 +1726,14 @@ app.registerExtension({
                         lightboxAudio.style.display = 'block';
                         lightboxAudio.src = `/local_image_gallery/view?filepath=${encodeURIComponent(media.path)}`;
                     }
-                    
+
                     prevButton.disabled = lightboxCurrentIndex === 0;
                     nextButton.disabled = lightboxCurrentIndex === lightboxMediaList.length - 1;
                 }
-                
+
                 prevButton.addEventListener('click', () => showMediaAtIndex(lightboxCurrentIndex - 1, lightboxMediaList));
                 nextButton.addEventListener('click', () => showMediaAtIndex(lightboxCurrentIndex + 1, lightboxMediaList));
-                
+
                 lightboxImg.addEventListener('mousedown', (e) => { e.preventDefault(); panning = true; lightboxImg.classList.add('panning'); start = { x: e.clientX - pointX, y: e.clientY - pointY }; });
                 window.addEventListener('mouseup', () => { panning = false; lightboxImg.classList.remove('panning'); });
                 window.addEventListener('mousemove', (e) => { if (!panning) return; e.preventDefault(); pointX = e.clientX - start.x; pointY = e.clientY - start.y; setTransform(); });
@@ -1741,7 +1741,7 @@ app.registerExtension({
                     if (lightboxImg.style.display !== 'block') return;
                     e.preventDefault(); const rect = lightboxImg.getBoundingClientRect(); const delta = -e.deltaY; const oldScale = scale; scale *= (delta > 0 ? 1.1 : 1 / 1.1); scale = Math.max(0.2, scale); pointX = (1 - scale / oldScale) * (e.clientX - rect.left) + pointX; pointY = (1 - scale / oldScale) * (e.clientY - rect.top) + pointY; setTransform();
                 });
-                
+
                 const closeLightbox = () => {
                     lightbox.style.display = 'none';
                     lightboxImg.src = "";
@@ -1750,18 +1750,18 @@ app.registerExtension({
                 };
                 lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
                 lightbox.addEventListener('click', (e) => { if (e.target.classList.contains('lightbox-content')) closeLightbox(); });
-                
+
                 window.addEventListener('keydown', (e) => {
                     if (lightbox.style.display !== 'flex') return;
                     if (e.key === 'ArrowLeft') { e.preventDefault(); prevButton.click(); }
                     else if (e.key === 'ArrowRight') { e.preventDefault(); nextButton.click(); }
                     else if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
                 });
-                
+
                 const saveCurrentControlsState = () => {
                     const sortBy = controls.querySelector(".lmm-sort-by");
                     const sortOrder = controls.querySelector(".lmm-sort-order");
-                    
+
                     const state = {
                         sort_by: sortBy.value,
                         sort_order: sortOrder.value,
@@ -1775,19 +1775,19 @@ app.registerExtension({
                     };
                     setUiState.call(this, this.id, state);
                 };
-                
+
                 const handleTagSelectionChange = () => {
                     const selectedTags = Array.from(multiSelectTagDropdown.querySelectorAll('input:checked')).map(cb => cb.value);
                     tagFilterInput.value = selectedTags.join(',');
                     lastFilteredTags = tagFilterInput.value.trim();
                     saveStateAndReload(false);
                 };
-                
+
                 const saveStateAndReload = (forceRefresh = false) => {
                     saveCurrentControlsState();
                     resetAndReload(forceRefresh);
                 };
-                
+
                 const resetAndReload = (forceRefresh = false) => { fetchImages.call(this, 1, false, forceRefresh); };
                 controls.querySelector('.lmm-refresh-button').onclick = () => saveStateAndReload(true);
                 let tagFilterDebounceTimer = null;
@@ -1822,7 +1822,7 @@ app.registerExtension({
                         document.execCommand('delete');
                     }
                 });
-                
+
                 tagEditorInput.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter' && selectedCardsForEditing.size > 0) {
                         e.preventDefault();
@@ -1834,7 +1834,7 @@ app.registerExtension({
                                 if (item && !item.tags.includes(newTag)) {
                                     item.tags.push(newTag);
                                     updatePromises.push(updateMetadata(path, { tags: item.tags }));
-                                    
+
                                     const cardInDom = cardholder.querySelector(`.lmm-gallery-card[data-path="${CSS.escape(path)}"]`);
                                     if (cardInDom) {
                                         cardInDom.dataset.tags = item.tags.join(',');
@@ -1842,7 +1842,7 @@ app.registerExtension({
                                     }
                                 }
                             });
-                            
+
                             await Promise.all(updatePromises);
                             await loadAllTags();
                             renderTagEditor();
@@ -1850,7 +1850,7 @@ app.registerExtension({
                         }
                     }
                 });
-                
+
                 controls.querySelectorAll('select:not(.lmm-path-presets)').forEach(select => { select.addEventListener('change', () => saveStateAndReload(false)); });
                 showImagesCheckbox.addEventListener('change', () => saveStateAndReload(false));
                 showVideosCheckbox.addEventListener('change', () => saveStateAndReload(false));
@@ -1895,7 +1895,7 @@ app.registerExtension({
                     saveStateAndReload(false);
                 });
                 // Scope change handling is done in the scopeIcons click listeners above
-                
+
                 addPathButton.addEventListener('click', () => {
                     const currentPath = pathInput.value.trim();
                     if (currentPath) {
@@ -1907,14 +1907,14 @@ app.registerExtension({
                         }
                     }
                 });
-                
+
                 removePathButton.addEventListener('click', () => {
                     if (pathPresets.selectedIndex > -1) {
                         pathPresets.remove(pathPresets.selectedIndex);
                         savePaths();
                     }
                 });
-                
+
                 pathPresets.addEventListener('change', () => {
                     if (pathPresets.value) {
                         pathInput.value = pathPresets.value;
@@ -1922,23 +1922,23 @@ app.registerExtension({
                         saveStateAndReload(true);
                     }
                 });
-                
+
                 const arrow = multiSelectTagContainer.querySelector('.lmm-multiselect-arrow');
                 multiSelectTagDisplay.addEventListener('click', () => {
                     const isVisible = multiSelectTagDropdown.style.display === 'block';
                     multiSelectTagDropdown.style.display = isVisible ? 'none' : 'block';
                     arrow.classList.toggle('open', !isVisible);
                 });
-                
+
                 document.addEventListener('click', (e) => {
                     if (!multiSelectTagContainer.contains(e.target)) {
                         multiSelectTagDropdown.style.display = 'none';
                         arrow.classList.remove('open');
                     }
                 });
-                
+
                 upButton.onclick = () => {
-                    if(parentDir){
+                    if (parentDir) {
                         pathInput.value = parentDir;
                         searchInput.value = '';
                         lastSearchedQuery = '';
@@ -1947,7 +1947,7 @@ app.registerExtension({
                         pathPresets.selectedIndex = 0;
                     }
                 };
-                
+
                 tagFilterModeBtn.addEventListener('click', () => {
                     if (tagFilterModeBtn.textContent === 'OR') {
                         tagFilterModeBtn.textContent = 'AND';
@@ -1958,7 +1958,7 @@ app.registerExtension({
                     }
                     saveStateAndReload(false);
                 });
-                
+
                 const updateShowSelectedButtonUI = () => {
                     if (showSelectedMode) {
                         showSelectedButton.classList.add('active');
@@ -1970,7 +1970,7 @@ app.registerExtension({
                         showSelectedButton.title = "Show all selected items across folders";
                     }
                 };
-                
+
                 showSelectedButton.addEventListener('click', () => {
                     showSelectedMode = !showSelectedMode;
                     if (!showSelectedMode) {
@@ -1978,14 +1978,14 @@ app.registerExtension({
                     }
                     saveStateAndReload(false);
                 });
-                
+
                 cardholder.onscroll = () => {
                     updateVisibleItemsAndRender();
-                    if (cardholder.scrollTop + cardholder.clientHeight >= cardholder.scrollHeight - 300 && !isLoading && currentPage < totalPages) { 
-                        fetchImages.call(this, currentPage + 1, true, false); 
-                    } 
+                    if (cardholder.scrollTop + cardholder.clientHeight >= cardholder.scrollHeight - 300 && !isLoading && currentPage < totalPages) {
+                        fetchImages.call(this, currentPage + 1, true, false);
+                    }
                 };
-                
+
                 const clearTagFilterButton = controls.querySelector(".lmm-clear-tag-filter-button");
                 clearTagFilterButton.addEventListener("click", () => {
                     tagFilterInput.value = "";
@@ -1995,7 +1995,7 @@ app.registerExtension({
                     checkboxes.forEach(cb => { cb.checked = false; });
                     saveStateAndReload(false);
                 });
-                
+
                 document.addEventListener("keydown", (e) => {
                     if (e.key === "Escape") {
                         if (selectedCardsForEditing.size > 0) {
@@ -2005,16 +2005,16 @@ app.registerExtension({
                         }
                     }
                 });
-                
+
                 batchSelectAllBtn.addEventListener('click', () => {
                     const allMediaItems = allItems.filter(card => card.type !== 'dir');
-                    
+
                     if (selection.length === allMediaItems.length) {
                         selection = [];
                     } else {
                         selection = allMediaItems.map(item => ({ path: item.path, type: item.type }));
                     }
-                    
+
                     cardholder.querySelectorAll('.lmm-gallery-card').forEach(card => {
                         if (selection.some(item => item.path === card.dataset.path)) {
                             card.classList.add('lmm-selected');
@@ -2022,18 +2022,18 @@ app.registerExtension({
                             card.classList.remove('lmm-selected');
                         }
                     });
-                    
+
                     renderSelectionBadges();
-                    
+
                     const selectionJson = JSON.stringify(selection);
                     node_instance.setProperty("selection", selectionJson);
                     const widget = node_instance.widgets.find(w => w.name === "selection");
                     if (widget) { widget.value = selectionJson; }
-                    
+
                     setUiState.call(node_instance, node_instance.id, { selection: selection });
                     updateBatchActionButtonsState();
                 });
-                
+
                 batchDeleteBtn.addEventListener('click', async () => {
                     if (selection.length === 0) return;
                     const filepaths = selection.map(item => item.path);
@@ -2048,14 +2048,14 @@ app.registerExtension({
                         } catch (e) { alert(`Failed to delete files: ${e}`); }
                     }
                 });
-                
+
                 batchMoveBtn.addEventListener('click', async () => {
                     if (selection.length === 0) return;
-                    
+
                     const source_paths = selection.map(item => item.path);
                     const presetOptions = Array.from(pathPresets.options).filter(o => o.value).map((o, i) => `${i + 1}: ${o.value}`).join('\n');
                     const destination_dir = prompt("Enter destination folder path, or a preset number:\n\n" + presetOptions);
-                    
+
                     if (destination_dir) {
                         let final_dest_dir = destination_dir.trim();
                         const presetIndex = parseInt(final_dest_dir, 10) - 1;
@@ -2063,7 +2063,7 @@ app.registerExtension({
                         if (!isNaN(presetIndex) && presetIndex >= 0 && presetIndex < presetValues.length) {
                             final_dest_dir = presetValues[presetIndex];
                         }
-                        
+
                         try {
                             const response = await api.fetchApi("/local_image_gallery/move_files", {
                                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_paths, destination_dir: final_dest_dir }),
@@ -2078,17 +2078,17 @@ app.registerExtension({
                         } catch (e) { alert(`Failed to move files: ${e}`); }
                     }
                 });
-                
+
                 const handleRename = async () => {
                     if (selectedCardsForEditing.size !== 1) return;
-                    
+
                     const old_path = selectedCardsForEditing.values().next().value;
                     const new_name = renameInput.value.trim();
-                    
+
                     if (!new_name || new_name === old_path.split(/[/\\]/).pop()) {
                         return;
                     }
-                    
+
                     try {
                         const response = await api.fetchApi("/local_image_gallery/rename_file", {
                             method: "POST",
@@ -2106,7 +2106,7 @@ app.registerExtension({
                                 if (widget) { widget.value = selectionJson; }
                                 setUiState.call(node_instance, node_instance.id, { selection: selection });
                             }
-                            
+
                             selectedCardsForEditing.clear();
                             renderTagEditor();
                             resetAndReload(true);
@@ -2117,7 +2117,7 @@ app.registerExtension({
                         alert(`Failed to rename file: ${e}`);
                     }
                 };
-                
+
                 renameBtn.addEventListener('click', handleRename);
                 renameInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -2125,7 +2125,7 @@ app.registerExtension({
                         handleRename();
                     }
                 });
-                
+
                 const initializeNode = async () => {
                     try {
                         const galleryId = this.properties.gallery_unique_id;
@@ -2146,20 +2146,20 @@ app.registerExtension({
                             savedScopes.forEach(s => activeScopes.add(s));
                             updateScopeDisplay();
                             showSelectedMode = state.show_selected_mode || false;
-                            
+
                             selection = state.selection || [];
                             updateBatchActionButtonsState();
-                            
+
                             const selectionJson = JSON.stringify(selection);
                             this.setProperty("selection", selectionJson);
                             const widget = this.widgets.find(w => w.name === "selection");
                             if (widget) { widget.value = selectionJson; }
-                            
+
                             if (state.last_path) {
                                 pathInput.value = state.last_path;
                                 lastKnownPath = state.last_path;
                             }
-                            
+
                             switchToBreadcrumb(false);
                             resetAndReload(false);
                         }
@@ -2169,7 +2169,7 @@ app.registerExtension({
                         resetAndReload(false);
                     }
                 };
-                
+
                 const loadSavedPaths = async () => {
                     try {
                         const response = await api.fetchApi("/local_image_gallery/get_saved_paths");
@@ -2185,7 +2185,7 @@ app.registerExtension({
                         }
                     } catch (e) { console.error("Unable to load saved paths:", e); }
                 };
-                
+
                 const maskEditorBtn = controls.querySelector(".lmm-mask-editor-btn");
                 maskEditorBtn.addEventListener("click", () => {
                     if (selection.length !== 1 || selection[0].type !== 'image') {
@@ -2198,12 +2198,12 @@ app.registerExtension({
                         });
                     }
                 });
-                
+
                 setTimeout(() => initializeNode.call(this), 1);
                 loadSavedPaths();
                 loadAllTags();
-                
-                this.onResize = function(size) {
+
+                this.onResize = function (size) {
                     const minHeight = 470;
                     const minWidth = 800;
                     if (size[1] < minHeight) size[1] = minHeight;
@@ -2212,7 +2212,7 @@ app.registerExtension({
                     if (galleryContainer) {
                         let topOffset = galleryContainer.offsetTop;
 
-                        const approximateHeaderHeight = 120; 
+                        const approximateHeaderHeight = 120;
                         if (topOffset < 20) {
                             topOffset += approximateHeaderHeight;
                         }
@@ -2226,7 +2226,7 @@ app.registerExtension({
                     }
 
                     renderBreadcrumb(pathInput.value);
-                    debouncedLayout(); 
+                    debouncedLayout();
                 };
 
                 requestAnimationFrame(() => {
@@ -2234,7 +2234,7 @@ app.registerExtension({
                         this.onResize(this.size);
                     }
                 });
-                
+
                 return r;
             };
 
