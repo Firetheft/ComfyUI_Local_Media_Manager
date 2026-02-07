@@ -584,7 +584,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-tag-editor-list .lmm-tag .lmm-remove-tag { margin-left: 4px; color: #fdd; cursor: pointer; font-weight: bold; }
                         #${uniqueId} .lmm-show-selected-btn.active { background-color: #4A90E2; color: white; border-color: #4A90E2; }
                         #${uniqueId} .lmm-tag-filter-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
-                        #${uniqueId} .lmm-tag-filter-wrapper input { flex-grow: 1; }
+                        #${uniqueId} .lmm-tag-filter-wrapper input { flex-grow: 1; transition: box-shadow 0.2s; }
                         #${uniqueId} .lmm-multiselect-tag { position: relative; flex-grow: 1; }
                         #${uniqueId} .lmm-multiselect-tag-display {
                             background-color: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 10px;
@@ -634,17 +634,17 @@ app.registerExtension({
                         #${uniqueId} .lmm-mask-editor-btn { background-color: #2a2a2a; border: 1px solid #555; color: #eee; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
                         #${uniqueId} .lmm-mask-editor-btn:hover { background-color: #444; }
                         #${uniqueId} .lmm-search-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
-                        #${uniqueId} .lmm-search-wrapper input { flex-grow: 1; }
-                        #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 4px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
+                        #${uniqueId} .lmm-search-wrapper input { flex-grow: 1; transition: box-shadow 0.2s; }
+                        #${uniqueId} .lmm-search-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
+                        #${uniqueId} .lmm-tag-filter-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
+                        #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
                         #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button { display: block; }
-                        #${uniqueId} .lmm-search-scope-container { position: relative; flex-shrink: 0; }
-                        #${uniqueId} .lmm-search-scope-display { background-color: #333; color: #eee; border: 1px solid #555; border-radius: 4px; padding: 2px 8px; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap; user-select: none; }
-                        #${uniqueId} .lmm-search-scope-arrow { font-size: 10px; transition: transform 0.2s; }
-                        #${uniqueId} .lmm-search-scope-arrow.open { transform: rotate(180deg); }
-                        #${uniqueId} .lmm-search-scope-dropdown { display: none; position: absolute; top: 100%; left: 0; background: #333; border: 1px solid #555; border-radius: 4px; padding: 4px 0; z-index: 100; min-width: 140px; }
-                        #${uniqueId} .lmm-scope-option { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; white-space: nowrap; color: #eee; font-size: 12px; }
-                        #${uniqueId} .lmm-scope-option:hover { background-color: #444; }
-                        #${uniqueId} .lmm-scope-option:first-child { border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 2px; }
+                        #${uniqueId} .lmm-search-scope-container { flex-shrink: 0; }
+                        #${uniqueId} .lmm-scope-icons { display: flex; gap: 2px; font-size: 14px; line-height: 1; align-items: center; }
+                        #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
+                        #${uniqueId} .lmm-scope-icons span.inactive { opacity: 0.2; }
+                        #${uniqueId} .lmm-scope-icons .lmm-scope-divider { width: 1px; height: 14px; background: #555; margin: 0 2px; cursor: default; }
+                        #${uniqueId} .lmm-search-status { display: none; text-align: center; font-size: 11px; color: #aaa; padding: 2px 0; margin: -6px 0 -2px; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -664,24 +664,15 @@ app.registerExtension({
                         <div class="lmm-controls" style="gap: 5px;">
                             <label>Search:</label>
                             <div class="lmm-search-wrapper">
-                                <input type="text" class="lmm-search-input" placeholder="Search by filename... (Enter to search)">
+                                <input type="text" class="lmm-search-input" placeholder="Search by filename...">
                                 <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
                             </div>
                             <label>in</label>
                             <div class="lmm-search-scope-container">
-                                <div class="lmm-search-scope-display">
-                                    <span class="lmm-search-scope-text">All</span>
-                                    <span class="lmm-search-scope-arrow">▼</span>
-                                </div>
-                                <div class="lmm-search-scope-dropdown">
-                                    <label class="lmm-scope-option"><input type="checkbox" value="all" checked> Check All</label>
-                                    <label class="lmm-scope-option"><input type="checkbox" value="current" checked> Current Dir</label>
-                                    <label class="lmm-scope-option"><input type="checkbox" value="input" checked> Input</label>
-                                    <label class="lmm-scope-option"><input type="checkbox" value="output" checked> Output</label>
-                                    <label class="lmm-scope-option"><input type="checkbox" value="saved" checked> Saved Paths</label>
-                                </div>
+                                <span class="lmm-scope-icons"><span data-scope="current">📂</span><span data-scope="input">📥</span><span data-scope="output">📤</span><span data-scope="saved">💾</span><span class="lmm-scope-divider"></span><span class="lmm-scope-all">🌐</span></span>
                             </div>
                         </div>
+                        <div class="lmm-search-status"></div>
                         <div class="lmm-controls" style="gap: 5px;">
                             <label>Sort by:</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
                             <label>Order:</label> <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
@@ -752,56 +743,96 @@ app.registerExtension({
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
                 const searchInput = controls.querySelector(".lmm-search-input");
+                const searchStatus = controls.querySelector(".lmm-search-status");
                 const searchScopeContainer = controls.querySelector(".lmm-search-scope-container");
-                const searchScopeDisplay = searchScopeContainer.querySelector(".lmm-search-scope-display");
-                const searchScopeDropdown = searchScopeContainer.querySelector(".lmm-search-scope-dropdown");
-                const searchScopeText = searchScopeContainer.querySelector(".lmm-search-scope-text");
-                const searchScopeArrow = searchScopeContainer.querySelector(".lmm-search-scope-arrow");
-                const scopeCheckAll = searchScopeDropdown.querySelector('input[value="all"]');
-                const scopeCheckboxes = searchScopeDropdown.querySelectorAll('input:not([value="all"])');
+                const scopeIcons = searchScopeContainer.querySelectorAll(".lmm-scope-icons span[data-scope]");
+                const scopeAllToggle = searchScopeContainer.querySelector(".lmm-scope-all");
+                const activeScopes = new Set(['current', 'input', 'output', 'saved']);
 
-                const getSelectedScopes = () => Array.from(scopeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+                const getSelectedScopes = () => Array.from(activeScopes);
 
                 const updateScopeDisplay = () => {
-                    const selected = getSelectedScopes();
-                    const labels = { current: 'Current', input: 'Input', output: 'Output', saved: 'Saved' };
-                    if (selected.length === scopeCheckboxes.length) {
-                        searchScopeText.textContent = 'All';
-                    } else if (selected.length === 0) {
-                        searchScopeText.textContent = 'None';
-                    } else {
-                        searchScopeText.textContent = selected.map(v => labels[v] || v).join(', ');
-                    }
-                    scopeCheckAll.checked = selected.length === scopeCheckboxes.length;
-                    scopeCheckAll.indeterminate = selected.length > 0 && selected.length < scopeCheckboxes.length;
+                    scopeIcons.forEach(icon => {
+                        icon.classList.toggle('inactive', !activeScopes.has(icon.dataset.scope));
+                    });
+                    scopeAllToggle.classList.toggle('inactive', activeScopes.size < 4);
                 };
 
-                scopeCheckAll.addEventListener('change', () => {
-                    const shouldCheck = scopeCheckAll.checked;
-                    scopeCheckboxes.forEach(cb => { cb.checked = shouldCheck; });
+                scopeIcons.forEach(icon => {
+                    icon.addEventListener('click', () => {
+                        const scope = icon.dataset.scope;
+                        if (activeScopes.has(scope)) activeScopes.delete(scope);
+                        else activeScopes.add(scope);
                     updateScopeDisplay();
                     if (searchInput.value.trim()) saveStateAndReload(false);
                 });
-
-                scopeCheckboxes.forEach(cb => {
-                    cb.addEventListener('change', () => {
+                });
+                scopeAllToggle.addEventListener('click', () => {
+                    const allScopes = ['current', 'input', 'output', 'saved'];
+                    if (activeScopes.size === allScopes.length) {
+                        activeScopes.clear();
+                    } else {
+                        allScopes.forEach(s => activeScopes.add(s));
+                    }
                         updateScopeDisplay();
                         if (searchInput.value.trim()) saveStateAndReload(false);
                     });
+                
+                // Scope icon tooltips — appended to body to avoid transform containment
+                const scopeTip = document.createElement('div');
+                Object.assign(scopeTip.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#ccc', fontSize: '22px',
+                    padding: '8px 14px', borderRadius: '4px', border: '1px solid #444',
+                    pointerEvents: 'none', zIndex: '10000', whiteSpace: 'pre', lineHeight: '1.4',
+                    opacity: '0', transition: 'opacity 0.15s',
                 });
-
-                searchScopeDisplay.addEventListener('click', () => {
-                    const isVisible = searchScopeDropdown.style.display === 'block';
-                    searchScopeDropdown.style.display = isVisible ? 'none' : 'block';
-                    searchScopeArrow.classList.toggle('open', !isVisible);
-                });
-
-                document.addEventListener('click', (e) => {
-                    if (!searchScopeContainer.contains(e.target)) {
-                        searchScopeDropdown.style.display = 'none';
-                        searchScopeArrow.classList.remove('open');
+                document.body.appendChild(scopeTip);
+                let scopeTipTimer = null;
+                const scopeTipText = (el) => {
+                    const t = (text) => `<span style="color:#eee;font-weight:500">${text}</span>`;
+                    const d = (text) => `<span style="color:#999;font-size:20px">${text}</span>`;
+                    const scope = el.dataset.scope;
+                    if (scope === 'current') {
+                        let dir = pathInput.value.trim() || '(none)';
+                        if (dir !== '(none)' && !dir.endsWith('/')) dir = dir + '/';
+                        return t('Include current directory in search scope') + '\n' + d(dir);
                     }
+                    if (scope === 'input') return t('Include input directory in search scope');
+                    if (scope === 'output') return t('Include output directory in search scope');
+                    if (scope === 'saved') {
+                        const paths = Array.from(pathPresets.options).map(o => o.value).filter(Boolean);
+                        let detail = '';
+                        if (paths.length === 0) {
+                            detail = d('(none configured)');
+                        } else {
+                            const show = paths.slice(0, 10);
+                            detail = show.map(p => d(p)).join('\n');
+                            if (paths.length > 10) detail += '\n' + d(`  \u2026and ${paths.length - 10} more`);
+                    }
+                        return detail + '\n' + t('Include saved paths in search scope');
+                    }
+                    if (el.classList.contains('lmm-scope-all')) return t('Toggle all search scopes');
+                    return '';
+                };
+                const showScopeTip = (el) => {
+                    clearTimeout(scopeTipTimer);
+                    scopeTipTimer = setTimeout(() => {
+                        scopeTip.innerHTML = scopeTipText(el);
+                        scopeTip.style.opacity = '1';
+                        const rect = el.getBoundingClientRect();
+                        scopeTip.style.left = rect.left + rect.width / 2 - scopeTip.offsetWidth / 2 + 'px';
+                        scopeTip.style.top = rect.top - scopeTip.offsetHeight - 4 + 'px';
+                    }, 250);
+                };
+                const hideScopeTip = () => {
+                    clearTimeout(scopeTipTimer);
+                    scopeTip.style.opacity = '0';
+                };
+                searchScopeContainer.querySelectorAll('.lmm-scope-icons span:not(.lmm-scope-divider)').forEach(el => {
+                    el.addEventListener('mouseenter', () => showScopeTip(el));
+                    el.addEventListener('mouseleave', hideScopeTip);
                 });
+                
                 const clearSearchButton = controls.querySelector(".lmm-clear-search-button");
                 const tagEditor = controls.querySelector(".lmm-tag-editor");
                 const tagEditorInput = controls.querySelector(".lmm-tag-editor-input");
@@ -817,7 +848,7 @@ app.registerExtension({
                 
                 const renderBreadcrumb = (path) => {
                     breadcrumbEl.innerHTML = '';
-                    if (!path || path === "Selected Items" || path === "Global Search" || path.startsWith("Search: ")) {
+                    if (!path || path === "Selected Items") {
                         const staticItem = document.createElement('span');
                         staticItem.textContent = path || "Enter a path...";
                         staticItem.style.paddingLeft = '4px';
@@ -1495,13 +1526,27 @@ app.registerExtension({
                             lastKnownPath = api_data.current_directory;
                             renderBreadcrumb(api_data.current_directory);
                             setUiState.call(this, this.id, { last_path: api_data.current_directory });
-                        } else if (currentSearchQuery) {
+                        } else {
+                            renderBreadcrumb(lastKnownPath || '');
+                        }
+
+                        // Update search status indicator
+                        const filterTag = tagFilterInput.value.trim();
+                        const statusParts = [];
+                        if (currentSearchQuery) {
                             const scopeLabels = { current: 'Current Dir', input: 'Input', output: 'Output', saved: 'Saved Paths' };
                             const scopeLabel = currentSearchScopes.length === 4 ? 'All' : currentSearchScopes.map(s => scopeLabels[s] || s).join(', ');
-                            const fuzzyLabel = api_data.fuzzy ? ' (fuzzy match)' : '';
-                            renderBreadcrumb(`Search: "${currentSearchQuery}" in ${scopeLabel}${fuzzyLabel}`);
+                            const fuzzyLabel = api_data.fuzzy ? ' (fuzzy)' : '';
+                            statusParts.push(`File: "${currentSearchQuery}" in ${scopeLabel}${fuzzyLabel}`);
+                        }
+                        if (filterTag) {
+                            statusParts.push(`Tags: ${filterTag}`);
+                        }
+                        if (statusParts.length) {
+                            searchStatus.textContent = '\uD83D\uDD0D ' + statusParts.join(' + ');
+                            searchStatus.style.display = 'block';
                         } else {
-                            renderBreadcrumb("Global Search");
+                            searchStatus.style.display = 'none';
                         }
 
                         upButton.disabled = api_data.is_global_search || !parentDir;
@@ -1567,8 +1612,7 @@ app.registerExtension({
                         event.stopPropagation();
                         tagFilterInput.value = event.target.textContent;
                         lastFilteredTags = tagFilterInput.value.trim();
-                        scopeCheckAll.checked = true;
-                        scopeCheckboxes.forEach(cb => { cb.checked = true; });
+                        ['current', 'input', 'output', 'saved'].forEach(s => activeScopes.add(s));
                         updateScopeDisplay();
                         resetAndReload(true);
                         return;
@@ -1771,6 +1815,11 @@ app.registerExtension({
                         clearTimeout(tagFilterDebounceTimer);
                         lastFilteredTags = tagFilterInput.value.trim();
                         saveStateAndReload(false);
+                    } else if (e.key === 'Escape' && tagFilterInput.value) {
+                        e.preventDefault();
+                        tagFilterInput.focus();
+                        document.execCommand('selectAll');
+                        document.execCommand('delete');
                     }
                 });
                 
@@ -1832,6 +1881,11 @@ app.registerExtension({
                         clearTimeout(searchDebounceTimer);
                         lastSearchedQuery = searchInput.value.trim();
                         saveStateAndReload(false);
+                    } else if (e.key === 'Escape' && searchInput.value) {
+                        e.preventDefault();
+                        searchInput.focus();
+                        document.execCommand('selectAll');
+                        document.execCommand('delete');
                     }
                 });
                 clearSearchButton.addEventListener('click', () => {
@@ -1840,7 +1894,7 @@ app.registerExtension({
                     clearTimeout(searchDebounceTimer);
                     saveStateAndReload(false);
                 });
-                // Scope change handling is done in the scopeCheckAll/scopeCheckboxes listeners above
+                // Scope change handling is done in the scopeIcons click listeners above
                 
                 addPathButton.addEventListener('click', () => {
                     const currentPath = pathInput.value.trim();
@@ -2087,8 +2141,9 @@ app.registerExtension({
                             lastFilteredTags = (state.filter_tag || '').trim();
                             searchInput.value = state.search_query || '';
                             lastSearchedQuery = searchInput.value.trim();
-                            const activeScopes = state.search_scopes || (state.search_scope ? [state.search_scope] : ['current', 'input', 'output', 'saved']);
-                            scopeCheckboxes.forEach(cb => { cb.checked = activeScopes.includes(cb.value); });
+                            const savedScopes = state.search_scopes || (state.search_scope ? [state.search_scope] : ['current', 'input', 'output', 'saved']);
+                            activeScopes.clear();
+                            savedScopes.forEach(s => activeScopes.add(s));
                             updateScopeDisplay();
                             showSelectedMode = state.show_selected_mode || false;
                             
