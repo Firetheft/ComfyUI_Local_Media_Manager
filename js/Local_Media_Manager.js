@@ -1423,7 +1423,8 @@ app.registerExtension({
                             setUiState.call(this, this.id, { last_path: api_data.current_directory });
                         } else if (currentSearchQuery) {
                             const scopeLabels = { current: 'Current Dir', input: 'Input', output: 'Output', all: 'All Saved Paths' };
-                            renderBreadcrumb(`Search: "${currentSearchQuery}" in ${scopeLabels[currentSearchScope] || currentSearchScope}`);
+                            const fuzzyLabel = api_data.fuzzy ? ' (fuzzy match)' : '';
+                            renderBreadcrumb(`Search: "${currentSearchQuery}" in ${scopeLabels[currentSearchScope] || currentSearchScope}${fuzzyLabel}`);
                             breadcrumbEl.style.pointerEvents = "none";
                         } else {
                             renderBreadcrumb("Global Search");
@@ -1502,6 +1503,7 @@ app.registerExtension({
                     if (type === 'dir') {
                         pathInput.value = path;
                         searchInput.value = '';
+                        lastSearchedQuery = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
                         pathPresets.selectedIndex = 0;
@@ -1702,11 +1704,38 @@ app.registerExtension({
                 showImagesCheckbox.addEventListener('change', () => saveStateAndReload(false));
                 showVideosCheckbox.addEventListener('change', () => saveStateAndReload(false));
                 showAudioCheckbox.addEventListener('change', () => saveStateAndReload(false));
+                let searchDebounceTimer = null;
+                let lastSearchedQuery = '';
+
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(searchDebounceTimer);
+                    searchDebounceTimer = setTimeout(() => {
+                        const q = searchInput.value.trim();
+                        if (q !== lastSearchedQuery) {
+                            lastSearchedQuery = q;
+                            saveStateAndReload(false);
+                        }
+                    }, 1000);
+                });
+                searchInput.addEventListener('blur', () => {
+                    clearTimeout(searchDebounceTimer);
+                    const q = searchInput.value.trim();
+                    if (q !== lastSearchedQuery) {
+                        lastSearchedQuery = q;
+                        saveStateAndReload(false);
+                    }
+                });
                 searchInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') saveStateAndReload(false);
+                    if (e.key === 'Enter') {
+                        clearTimeout(searchDebounceTimer);
+                        lastSearchedQuery = searchInput.value.trim();
+                        saveStateAndReload(false);
+                    }
                 });
                 clearSearchButton.addEventListener('click', () => {
                     searchInput.value = '';
+                    lastSearchedQuery = '';
+                    clearTimeout(searchDebounceTimer);
                     saveStateAndReload(false);
                 });
                 searchScopeSelect.addEventListener('change', () => {
@@ -1758,6 +1787,7 @@ app.registerExtension({
                     if(parentDir){
                         pathInput.value = parentDir;
                         searchInput.value = '';
+                        lastSearchedQuery = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
                         pathPresets.selectedIndex = 0;
@@ -1953,6 +1983,7 @@ app.registerExtension({
                             showAudioCheckbox.checked = state.show_audio;
                             tagFilterInput.value = state.filter_tag;
                             searchInput.value = state.search_query || '';
+                            lastSearchedQuery = searchInput.value.trim();
                             searchScopeSelect.value = state.search_scope || 'current';
                             showSelectedMode = state.show_selected_mode || false;
                             

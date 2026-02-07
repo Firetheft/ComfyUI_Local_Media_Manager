@@ -16,6 +16,7 @@ import cv2
 import subprocess
 import re
 import base64
+import fnmatch
 import folder_paths
 
 VAE_STRIDE = (4, 8, 8)
@@ -870,23 +871,23 @@ def get_cached_directory_data(directory, force_refresh=False):
     DIRECTORY_CACHE[cache_key] = (all_items, now)
     return all_items
 
-def get_recursive_search_results(roots, query, force_refresh=False):
-    """Recursively search directories for files matching query (case-insensitive substring)."""
-    now = time.time()
-    query_lower = query.lower()
-    sorted_roots = ":".join(sorted(roots))
-    cache_key = f"search:{query_lower}:{sorted_roots}"
+def matches_query(query_lower, name_lower):
+    """Match query against name. Supports substring and wildcards (* ?)."""
+    if '*' in query_lower or '?' in query_lower:
+        return fnmatch.fnmatch(name_lower, query_lower)
+    return query_lower in name_lower
 
-    if not force_refresh and cache_key in DIRECTORY_CACHE:
-        cached_data, timestamp = DIRECTORY_CACHE[cache_key]
-        if now - timestamp < CACHE_LIFETIME:
-            return cached_data
+def fuzzy_match(query_lower, name_lower):
+    """All query chars appear in name in order (with gaps allowed)."""
+    qi = 0
+    for ch in name_lower:
+        if qi < len(query_lower) and ch == query_lower[qi]:
+            qi += 1
+    return qi == len(query_lower)
 
-    all_extensions = set(SUPPORTED_IMAGE_EXTENSIONS + SUPPORTED_VIDEO_EXTENSIONS + SUPPORTED_AUDIO_EXTENSIONS)
-    metadata = load_metadata()
+def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn):
+    """Walk roots and collect matching files and directories."""
     all_items = []
-
-    visited = set()
     for root_dir in roots:
         if not root_dir or not os.path.isdir(root_dir):
             continue
@@ -895,9 +896,27 @@ def get_recursive_search_results(roots, query, force_refresh=False):
             continue
         visited.add(real_root)
 
-        for dirpath, _dirnames, filenames in os.walk(root_dir):
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            for dname in dirnames:
+                if not match_fn(query_lower, dname.lower()):
+                    continue
+                dir_full_path = os.path.join(dirpath, dname).replace("\\", "/")
+                try:
+                    stats = os.stat(dir_full_path)
+                    item_meta = metadata.get(dir_full_path, {})
+                    all_items.append({
+                        'path': dir_full_path,
+                        'name': dname,
+                        'mtime': stats.st_mtime,
+                        'rating': item_meta.get('rating', 0),
+                        'tags': item_meta.get('tags', []),
+                        'type': 'dir'
+                    })
+                except (PermissionError, FileNotFoundError):
+                    continue
+
             for fname in filenames:
-                if query_lower not in fname.lower():
+                if not match_fn(query_lower, fname.lower()):
                     continue
                 ext = os.path.splitext(fname)[1].lower()
                 if ext not in all_extensions:
@@ -923,9 +942,36 @@ def get_recursive_search_results(roots, query, force_refresh=False):
                         all_items.append({**item_data, 'type': 'audio'})
                 except (PermissionError, FileNotFoundError):
                     continue
-
-    DIRECTORY_CACHE[cache_key] = (all_items, now)
     return all_items
+
+def get_recursive_search_results(roots, query, force_refresh=False):
+    """Recursively search directories for files matching query. Supports substring, wildcards, and fuzzy fallback."""
+    now = time.time()
+    query_lower = query.lower()
+    sorted_roots = ":".join(sorted(roots))
+    cache_key = f"search:{query_lower}:{sorted_roots}"
+
+    if not force_refresh and cache_key in DIRECTORY_CACHE:
+        cached_data, timestamp = DIRECTORY_CACHE[cache_key]
+        if now - timestamp < CACHE_LIFETIME:
+            return cached_data
+
+    all_extensions = set(SUPPORTED_IMAGE_EXTENSIONS + SUPPORTED_VIDEO_EXTENSIONS + SUPPORTED_AUDIO_EXTENSIONS)
+    metadata = load_metadata()
+
+    visited = set()
+    all_items = _search_walk(roots, query_lower, metadata, all_extensions, visited, matches_query)
+
+    is_fuzzy = False
+    if not all_items and '*' not in query_lower and '?' not in query_lower:
+        visited.clear()
+        all_items = _search_walk(roots, query_lower, metadata, all_extensions, visited, fuzzy_match)
+        if all_items:
+            is_fuzzy = True
+
+    result = {'items': all_items, 'fuzzy': is_fuzzy}
+    DIRECTORY_CACHE[cache_key] = (result, now)
+    return result
 
 @prompt_server.routes.get("/local_image_gallery/images")
 async def get_local_images(request):
@@ -953,6 +999,7 @@ async def get_local_images(request):
     sort_order = request.query.get('sort_order', 'asc')
 
     all_items_with_meta = []
+    is_fuzzy = False
 
     try:
         def check_tags(item_tags):
@@ -984,12 +1031,15 @@ async def get_local_images(request):
                         abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
                         roots.append(abs_sp)
 
-            search_items = get_recursive_search_results(roots, search_query, force_refresh)
+            search_result = get_recursive_search_results(roots, search_query, force_refresh)
+            search_items = search_result['items']
+            is_fuzzy = search_result['fuzzy']
             for item in search_items:
                 if not check_tags(item.get('tags', [])):
                     continue
                 item_type = item['type']
-                if ((show_images and item_type == 'image') or
+                if (item_type == 'dir' or
+                    (show_images and item_type == 'image') or
                     (show_videos and item_type == 'video') or
                     (show_audio and item_type == 'audio')):
                     all_items_with_meta.append(item)
@@ -1076,11 +1126,14 @@ async def get_local_images(request):
         end = start + per_page
         paginated_items = all_items_with_meta[start:end]
 
-        return web.json_response({
+        response_data = {
             "items": paginated_items, "total_pages": (len(all_items_with_meta) + per_page - 1) // per_page,
             "current_page": page, "current_directory": directory, "parent_directory": parent_directory,
             "is_global_search": is_search_result
-        })
+        }
+        if is_fuzzy:
+            response_data["fuzzy"] = True
+        return web.json_response(response_data)
     except Exception as e:
         print(f"LMM Error: {e}")
         return web.json_response({"error": str(e)}, status=500)
