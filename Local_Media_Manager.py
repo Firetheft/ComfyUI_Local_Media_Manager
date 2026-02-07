@@ -16,6 +16,7 @@ import cv2
 import subprocess
 import re
 import base64
+import asyncio
 import fnmatch
 import folder_paths
 
@@ -33,8 +34,75 @@ SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.mkv', '.avi']
 SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.m4a']
 
-DIRECTORY_CACHE = {}
 CACHE_LIFETIME = 1800
+DIRSCAN_CACHE_DIR = os.path.join(CACHE_DIR, "dirscan")
+
+
+class DirCache:
+    def __init__(self, disk_dir, ttl=1800):
+        self._mem = {}          # key -> (data, timestamp)
+        self._disk_dir = disk_dir
+        self._ttl = ttl
+        self._locks = {}        # key -> asyncio.Lock
+        os.makedirs(disk_dir, exist_ok=True)
+
+    def _disk_path(self, key):
+        h = hashlib.md5(key.encode()).hexdigest()
+        return os.path.join(self._disk_dir, f"{h}.json")
+
+    def get(self, key):
+        now = time.time()
+        # L1: memory
+        if key in self._mem:
+            data, ts = self._mem[key]
+            if now - ts < self._ttl:
+                return data
+            del self._mem[key]
+        # L2: disk
+        dp = self._disk_path(key)
+        try:
+            with open(dp, 'r') as f:
+                entry = json.load(f)
+            if now - entry['ts'] < self._ttl:
+                self._mem[key] = (entry['data'], entry['ts'])
+                return entry['data']
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            pass
+        return None
+
+    def put(self, key, data):
+        now = time.time()
+        self._mem[key] = (data, now)
+        dp = self._disk_path(key)
+        try:
+            with open(dp, 'w') as f:
+                json.dump({'data': data, 'ts': now}, f)
+        except Exception:
+            pass
+
+    def invalidate(self, key=None):
+        if key is None:
+            self._mem.clear()
+            for fname in os.listdir(self._disk_dir):
+                try:
+                    os.remove(os.path.join(self._disk_dir, fname))
+                except Exception:
+                    pass
+        else:
+            self._mem.pop(key, None)
+            try:
+                os.remove(self._disk_path(key))
+            except FileNotFoundError:
+                pass
+
+    def lock_for(self, key):
+        if key not in self._locks:
+            self._locks[key] = asyncio.Lock()
+        return self._locks[key]
+
+
+dir_cache = DirCache(DIRSCAN_CACHE_DIR, ttl=CACHE_LIFETIME)
+
 
 def ensure_cache_dirs():
     os.makedirs(THUMBNAIL_CACHE_DIR, exist_ok=True)
@@ -53,20 +121,28 @@ def load_config():
         except: pass
     return {}
 
+METADATA_CACHE = {'data': None, 'mtime': 0}
+
 def load_metadata():
     if not os.path.exists(METADATA_FILE): return {}
     try:
+        file_mtime = os.path.getmtime(METADATA_FILE)
+        if METADATA_CACHE['data'] is not None and file_mtime == METADATA_CACHE['mtime']:
+            return METADATA_CACHE['data']
         with open(METADATA_FILE, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
-            normalized_metadata = {k.replace("\\", "/"): v for k, v in metadata.items()}
-            return normalized_metadata
+            normalized = {k.replace("\\", "/"): v for k, v in metadata.items()}
+            METADATA_CACHE['data'] = normalized
+            METADATA_CACHE['mtime'] = file_mtime
+            return normalized
     except: return {}
 
 def save_metadata(data):
     try:
         with open(METADATA_FILE, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4, ensure_ascii=False)
     except Exception as e: print(f"LocalMediaManager: Error saving metadata: {e}")
-    DIRECTORY_CACHE.clear()
+    METADATA_CACHE['data'] = None
+    dir_cache.invalidate()
 
 def load_ui_state():
     if not os.path.exists(UI_STATE_FILE): return {}
@@ -811,15 +887,8 @@ async def get_all_tags(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-def get_cached_directory_data(directory, force_refresh=False):
-    now = time.time()
-    cache_key = directory
-
-    if not force_refresh and cache_key in DIRECTORY_CACHE:
-        cached_data, timestamp = DIRECTORY_CACHE[cache_key]
-        if now - timestamp < CACHE_LIFETIME:
-            return cached_data
-
+def _scan_directory(directory):
+    """Pure computation: scan a single directory for media files. No caching."""
     if not directory or not os.path.isdir(directory):
         return None
 
@@ -868,8 +937,26 @@ def get_cached_directory_data(directory, force_refresh=False):
         except (PermissionError, FileNotFoundError):
             continue
 
-    DIRECTORY_CACHE[cache_key] = (all_items, now)
     return all_items
+
+
+async def get_directory_data(directory, force_refresh=False):
+    """Cached async wrapper around _scan_directory with per-key coalescing."""
+    cache_key = directory
+    if not force_refresh:
+        cached = dir_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    async with dir_cache.lock_for(cache_key):
+        if not force_refresh:
+            cached = dir_cache.get(cache_key)
+            if cached is not None:
+                return cached
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, _scan_directory, directory)
+        if result is not None:
+            dir_cache.put(cache_key, result)
+        return result
 
 def matches_query(query_lower, name_lower):
     """Match query against name. Supports substring and wildcards (* ?)."""
@@ -960,18 +1047,8 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
                     continue
     return all_items
 
-def get_recursive_search_results(roots, query, force_refresh=False):
-    """Recursively search directories for files matching query. Supports substring, wildcards, and fuzzy fallback."""
-    now = time.time()
-    query_lower = query.lower()
-    sorted_roots = ":".join(sorted(roots))
-    cache_key = f"search:{query_lower}:{sorted_roots}"
-
-    if not force_refresh and cache_key in DIRECTORY_CACHE:
-        cached_data, timestamp = DIRECTORY_CACHE[cache_key]
-        if now - timestamp < CACHE_LIFETIME:
-            return cached_data
-
+def _scan_search(roots, query_lower):
+    """Pure computation: recursively search directories for files matching query."""
     all_extensions = set(SUPPORTED_IMAGE_EXTENSIONS + SUPPORTED_VIDEO_EXTENSIONS + SUPPORTED_AUDIO_EXTENSIONS)
     metadata = load_metadata()
 
@@ -985,9 +1062,27 @@ def get_recursive_search_results(roots, query, force_refresh=False):
         if all_items:
             is_fuzzy = True
 
-    result = {'items': all_items, 'fuzzy': is_fuzzy}
-    DIRECTORY_CACHE[cache_key] = (result, now)
-    return result
+    return {'items': all_items, 'fuzzy': is_fuzzy}
+
+
+async def get_search_results(roots, query, force_refresh=False):
+    """Cached async wrapper around _scan_search with per-key coalescing."""
+    query_lower = query.lower()
+    sorted_roots = ":".join(sorted(roots))
+    cache_key = f"search:{query_lower}:{sorted_roots}"
+    if not force_refresh:
+        cached = dir_cache.get(cache_key)
+        if cached is not None:
+            return cached
+    async with dir_cache.lock_for(cache_key):
+        if not force_refresh:
+            cached = dir_cache.get(cache_key)
+            if cached is not None:
+                return cached
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, _scan_search, roots, query_lower)
+        dir_cache.put(cache_key, result)
+        return result
 
 @prompt_server.routes.get("/local_image_gallery/images")
 async def get_local_images(request):
@@ -1049,7 +1144,7 @@ async def get_local_images(request):
                             abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
                             roots.append(abs_sp)
 
-            search_result = get_recursive_search_results(roots, search_query, force_refresh)
+            search_result = await get_search_results(roots, search_query, force_refresh)
             search_items = search_result['items']
             is_fuzzy = search_result['fuzzy']
             for item in search_items:
@@ -1092,7 +1187,7 @@ async def get_local_images(request):
                             except: continue
 
         elif search_mode == 'local':
-            directory_items = get_cached_directory_data(directory, force_refresh)
+            directory_items = await get_directory_data(directory, force_refresh)
             if directory_items is None:
                 return web.json_response({"error": "Directory not found or is invalid."}, status=404)
 
@@ -1322,7 +1417,7 @@ async def delete_files(request):
         metadata = load_metadata()
         metadata_changed = False
 
-        DIRECTORY_CACHE.clear()
+        dir_cache.invalidate()
 
         for filepath in filepaths:
             if not filepath or not os.path.isabs(filepath) or ".." in filepath:
@@ -1353,7 +1448,7 @@ async def delete_files(request):
 
 @prompt_server.routes.post("/local_image_gallery/move_files")
 async def move_files(request):
-    DIRECTORY_CACHE.clear()
+    dir_cache.invalidate()
     try:
         data = await request.json()
         source_paths = data.get("source_paths", [])
@@ -1420,7 +1515,7 @@ async def move_files(request):
 
 @prompt_server.routes.post("/local_image_gallery/rename_file")
 async def rename_file(request):
-    DIRECTORY_CACHE.clear()
+    dir_cache.invalidate()
     try:
         data = await request.json()
         old_path = data.get("old_path")
