@@ -633,6 +633,11 @@ app.registerExtension({
 
                         #${uniqueId} .lmm-mask-editor-btn { background-color: #2a2a2a; border: 1px solid #555; color: #eee; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
                         #${uniqueId} .lmm-mask-editor-btn:hover { background-color: #444; }
+                        #${uniqueId} .lmm-search-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
+                        #${uniqueId} .lmm-search-wrapper input { flex-grow: 1; }
+                        #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 4px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
+                        #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button { display: block; }
+                        #${uniqueId} .lmm-search-scope { background-color: #333; color: #eee; border: 1px solid #555; border-radius: 4px; padding: 2px 4px; flex-shrink: 0; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -673,13 +678,26 @@ app.registerExtension({
                                 </div>
                                 <div class="lmm-multiselect-tag-dropdown"></div>
                             </div>
-                            <label>Global:</label> <input type="checkbox" class="lmm-global-search">
                             <div style="margin-left: auto; display: flex; gap: 5px;">
                                 <button class="lmm-mask-editor-btn" title="Open Mask Editor for selected image">Mask Editor</button>
                                 <button class="lmm-batch-action-btn lmm-batch-select-all-btn" title="Select All Files in Current View">All</button>
                                 <button class="lmm-batch-action-btn lmm-batch-move-btn" title="Move Selected Files" disabled>➔ Move</button>
                                 <button class="lmm-batch-action-btn lmm-batch-delete-btn" title="Delete Selected Files" disabled>🗑️ Delete</button>
                             </div>
+                        </div>
+                        <div class="lmm-controls" style="gap: 5px;">
+                            <label>Search:</label>
+                            <div class="lmm-search-wrapper">
+                                <input type="text" class="lmm-search-input" placeholder="Search by filename... (Enter to search)">
+                                <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
+                            </div>
+                            <label>in</label>
+                            <select class="lmm-search-scope">
+                                <option value="current">Current Dir</option>
+                                <option value="input">Input</option>
+                                <option value="output">Output</option>
+                                <option value="all">All Saved Paths</option>
+                            </select>
                         </div>
                         <div class="lmm-controls lmm-tag-editor">
                             <label>Edit Tags (<span class="selected-count">0</span>):</label>
@@ -719,7 +737,9 @@ app.registerExtension({
                 const multiSelectTagContainer = controls.querySelector(".lmm-multiselect-tag");
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
-                const globalSearchCheckbox = controls.querySelector(".lmm-global-search");
+                const searchInput = controls.querySelector(".lmm-search-input");
+                const searchScopeSelect = controls.querySelector(".lmm-search-scope");
+                const clearSearchButton = controls.querySelector(".lmm-clear-search-button");
                 const tagEditor = controls.querySelector(".lmm-tag-editor");
                 const tagEditorInput = controls.querySelector(".lmm-tag-editor-input");
                 const tagEditorList = controls.querySelector(".lmm-tag-editor-list");
@@ -734,7 +754,7 @@ app.registerExtension({
                 
                 const renderBreadcrumb = (path) => {
                     breadcrumbEl.innerHTML = '';
-                    if (!path || path === "Selected Items" || path === "Global Search") {
+                    if (!path || path === "Selected Items" || path === "Global Search" || path.startsWith("Search: ")) {
                         const staticItem = document.createElement('span');
                         staticItem.textContent = path || "Enter a path...";
                         staticItem.style.paddingLeft = '4px';
@@ -1353,10 +1373,12 @@ app.registerExtension({
                     const showVideos = showVideosCheckbox.checked;
                     const showAudio = showAudioCheckbox.checked;
                     const filterTag = tagFilterInput.value;
-                    const isGlobalSearch = globalSearchCheckbox.checked;
+                    const currentSearchQuery = searchInput.value.trim();
+                    const currentSearchScope = searchScopeSelect.value;
+                    const isGlobalSearch = !!(currentSearchQuery) || (filterTag && currentSearchScope !== 'current');
                     const filterMode = tagFilterModeBtn.textContent;
-                    
-                    if (!directory && !isGlobalSearch) {
+
+                    if (!directory && !isGlobalSearch && !currentSearchQuery) {
                         placeholder.textContent = "Enter folder path and click 'Refresh'.";
                         placeholder.style.display = 'block';
                         allItems = [];
@@ -1365,15 +1387,21 @@ app.registerExtension({
                         isLoading = false;
                         return;
                     }
-                    
+
                     if (!append) {
-                        placeholder.textContent = "Loading...";
+                        placeholder.textContent = currentSearchQuery ? "Searching..." : "Loading...";
                         placeholder.style.display = 'block';
                     }
-                    
+
                     const sortBy = controls.querySelector(".lmm-sort-by").value;
                     const sortOrder = controls.querySelector(".lmm-sort-order").value;
-                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${isGlobalSearch ? 'global' : 'local'}&filter_mode=${filterMode}&force_refresh=${forceRefresh}`;
+                    let searchMode = 'local';
+                    if (currentSearchQuery) {
+                        searchMode = 'local';
+                    } else if (filterTag && currentSearchScope !== 'current') {
+                        searchMode = 'global';
+                    }
+                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${searchMode}&filter_mode=${filterMode}&force_refresh=${forceRefresh}&search_query=${encodeURIComponent(currentSearchQuery)}&search_scope=${currentSearchScope}`;
                     
                     if (selection.length > 0) {
                         selection.forEach(item => { url += `&selected_paths=${encodeURIComponent(item.path)}`; });
@@ -1393,25 +1421,29 @@ app.registerExtension({
                             lastKnownPath = api_data.current_directory;
                             renderBreadcrumb(api_data.current_directory);
                             setUiState.call(this, this.id, { last_path: api_data.current_directory });
+                        } else if (currentSearchQuery) {
+                            const scopeLabels = { current: 'Current Dir', input: 'Input', output: 'Output', all: 'All Saved Paths' };
+                            renderBreadcrumb(`Search: "${currentSearchQuery}" in ${scopeLabels[currentSearchScope] || currentSearchScope}`);
+                            breadcrumbEl.style.pointerEvents = "none";
                         } else {
                             renderBreadcrumb("Global Search");
                             breadcrumbEl.style.pointerEvents = "none";
                         }
-                        
+
                         upButton.disabled = api_data.is_global_search || !parentDir;
-                        
+
                         if (!append) {
                             allItems = items;
-                            cardholder.innerHTML = ''; 
+                            cardholder.innerHTML = '';
                             cardholder.scrollTop = 0;
                         } else {
                             const existingPaths = new Set(allItems.map(i => i.path));
                             const newItems = items.filter(i => !existingPaths.has(i.path));
                             allItems.push(...newItems);
                         }
-                        
+
                         if (allItems.length === 0) {
-                            placeholder.textContent = api_data.is_global_search ? 'No items found for this tag.' : 'The folder is empty.';
+                            placeholder.textContent = currentSearchQuery ? `No files matching "${currentSearchQuery}".` : (api_data.is_global_search ? 'No items found for this tag.' : 'The folder is empty.');
                             placeholder.style.display = 'block';
                         } else {
                             placeholder.style.display = 'none';
@@ -1460,16 +1492,16 @@ app.registerExtension({
                     if (event.target.classList.contains('lmm-tag')) {
                         event.stopPropagation();
                         tagFilterInput.value = event.target.textContent;
-                        globalSearchCheckbox.checked = true;
+                        searchScopeSelect.value = 'all';
                         resetAndReload(true);
                         return;
                     }
-                    
+
                     const type = card.dataset.type, path = card.dataset.path;
-                    
+
                     if (type === 'dir') {
                         pathInput.value = path;
-                        globalSearchCheckbox.checked = false;
+                        searchInput.value = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
                         pathPresets.selectedIndex = 0;
@@ -1615,7 +1647,8 @@ app.registerExtension({
                         show_videos: showVideosCheckbox.checked,
                         show_audio: showAudioCheckbox.checked,
                         filter_tag: tagFilterInput.value,
-                        global_search: globalSearchCheckbox.checked,
+                        search_query: searchInput.value,
+                        search_scope: searchScopeSelect.value,
                         show_selected_mode: showSelectedMode,
                     };
                     setUiState.call(this, this.id, state);
@@ -1669,7 +1702,16 @@ app.registerExtension({
                 showImagesCheckbox.addEventListener('change', () => saveStateAndReload(false));
                 showVideosCheckbox.addEventListener('change', () => saveStateAndReload(false));
                 showAudioCheckbox.addEventListener('change', () => saveStateAndReload(false));
-                globalSearchCheckbox.addEventListener('change', () => saveStateAndReload(false));
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') saveStateAndReload(false);
+                });
+                clearSearchButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    saveStateAndReload(false);
+                });
+                searchScopeSelect.addEventListener('change', () => {
+                    if (searchInput.value.trim()) saveStateAndReload(false);
+                });
                 
                 addPathButton.addEventListener('click', () => {
                     const currentPath = pathInput.value.trim();
@@ -1715,7 +1757,7 @@ app.registerExtension({
                 upButton.onclick = () => {
                     if(parentDir){
                         pathInput.value = parentDir;
-                        globalSearchCheckbox.checked = false;
+                        searchInput.value = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
                         pathPresets.selectedIndex = 0;
@@ -1910,7 +1952,8 @@ app.registerExtension({
                             showVideosCheckbox.checked = state.show_videos;
                             showAudioCheckbox.checked = state.show_audio;
                             tagFilterInput.value = state.filter_tag;
-                            globalSearchCheckbox.checked = state.global_search;
+                            searchInput.value = state.search_query || '';
+                            searchScopeSelect.value = state.search_scope || 'current';
                             showSelectedMode = state.show_selected_mode || false;
                             
                             selection = state.selection || [];
