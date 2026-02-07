@@ -668,7 +668,8 @@ app.registerExtension({
                         #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
                         #${uniqueId} .lmm-scope-icons span.inactive { opacity: 0.2; }
                         #${uniqueId} .lmm-scope-icons .lmm-scope-divider { width: 1px; height: 14px; background: #555; margin: 0 2px; cursor: default; }
-                        #${uniqueId} .lmm-search-status { display: none; position: sticky; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; color: #aaa; padding: 1px 8px; white-space: nowrap; z-index: 5; pointer-events: none; background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; width: fit-content; }
+                        #${uniqueId} .lmm-search-status { display: none; height: 0; overflow: visible; text-align: center; font-size: 11px; color: #aaa; pointer-events: none; z-index: 5; position: relative; }
+                        #${uniqueId} .lmm-search-status > span { background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; padding: 1px 8px; white-space: nowrap; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -737,8 +738,8 @@ app.registerExtension({
                                 <button class="lmm-rename-btn">✔️</button>
                             </div>
                             </div>
+                        <div class="lmm-search-status"><span></span></div>
                         <div class="lmm-cardholder">
-                            <div class="lmm-search-status"></div>
                             <div class="lmm-gallery-placeholder">Enter folder path and click 'Refresh'.</div>
                         </div>
                     </div>
@@ -767,7 +768,7 @@ app.registerExtension({
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
                 const searchInput = controls.querySelector(".lmm-search-input");
-                const searchStatus = cardholder.querySelector(".lmm-search-status");
+                const searchStatus = controls.querySelector(".lmm-search-status");
                 const searchScopeContainer = controls.querySelector(".lmm-search-scope-container");
                 const scopeIcons = searchScopeContainer.querySelectorAll(".lmm-scope-icons span[data-scope]");
                 const scopeAllToggle = searchScopeContainer.querySelector(".lmm-scope-all");
@@ -1095,6 +1096,7 @@ app.registerExtension({
                         }
 
                         let imagePartHeight = actualCardWidth / aspectRatio;
+
 
                         if (item.type === 'image' || item.type === 'video') {
                             imagePartHeight = Math.max(imagePartHeight, 100);
@@ -1470,6 +1472,9 @@ app.registerExtension({
                                 debouncedLayout();
                             }
                         };
+                        if (img.complete && img.naturalWidth > 0) {
+                            img.onload();
+                        }
                     }
 
                     return card;
@@ -1542,6 +1547,7 @@ app.registerExtension({
                         allItems = [];
                         calculateFullLayout();
                         cardholder.style.opacity = 1;
+                        searchStatus.style.display = 'none';
                         isLoading = false;
                         return;
                     }
@@ -1597,7 +1603,7 @@ app.registerExtension({
                             statusParts.push(`Tags: ${filterTag}`);
                         }
                         if (statusParts.length) {
-                            searchStatus.textContent = '\uD83D\uDD0D ' + statusParts.join(' + ');
+                            searchStatus.querySelector('span').textContent = '\uD83D\uDD0D ' + statusParts.join(' + ');
                             searchStatus.style.display = 'block';
                         } else {
                             searchStatus.style.display = 'none';
@@ -1608,6 +1614,7 @@ app.registerExtension({
                         if (!append) {
                             allItems = items;
                             cardholder.innerHTML = '';
+                            cardholder.appendChild(placeholder);
                             cardholder.scrollTop = 0;
                         } else {
                             const existingPaths = new Set(allItems.map(i => i.path));

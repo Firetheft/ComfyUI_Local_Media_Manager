@@ -19,6 +19,9 @@ import base64
 import asyncio
 import fnmatch
 import folder_paths
+import logging
+
+logger = logging.getLogger(__name__)
 
 VAE_STRIDE = (4, 8, 8)
 PATCH_SIZE = (1, 2, 2)
@@ -995,6 +998,7 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
         if not root_dir or not os.path.isdir(root_dir):
             continue
         real_root = os.path.realpath(root_dir)
+        logger.warning(f"[LMM SEARCH DEBUG] Processing root: {root_dir}, real_root: {real_root}, already_visited: {real_root in visited}")
         if real_root in visited:
             continue
         visited.add(real_root)
@@ -1004,6 +1008,10 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
                 if not match_fn(query_lower, dname.lower()):
                     continue
                 dir_full_path = os.path.join(dirpath, dname).replace("\\", "/")
+                real_dir_path = os.path.realpath(dir_full_path)
+                if real_dir_path in visited:
+                    continue
+                visited.add(real_dir_path)
                 try:
                     stats = os.stat(dir_full_path)
                     item_meta = metadata.get(dir_full_path, {})
@@ -1027,6 +1035,11 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
 
                 raw_full_path = os.path.join(dirpath, fname)
                 full_path = raw_full_path.replace("\\", "/")
+                real_path = os.path.realpath(raw_full_path)
+                if real_path in visited:
+                    logger.warning(f"[LMM SEARCH DEBUG] SKIP duplicate file: {full_path} (realpath: {real_path})")
+                    continue
+                visited.add(real_path)
                 try:
                     stats = os.stat(raw_full_path)
                     item_meta = metadata.get(full_path, {})
@@ -1038,6 +1051,8 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
                         'tags': item_meta.get('tags', [])
                     }
                     if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                        if len(all_items) < 5:
+                            logger.warning(f"[LMM SEARCH DEBUG] ADD file [{len(all_items)}]: {full_path} (realpath: {real_path})")
                         all_items.append({**item_data, 'type': 'image', 'has_workflow': False})
                     elif ext in SUPPORTED_VIDEO_EXTENSIONS:
                         all_items.append({**item_data, 'type': 'video', 'has_workflow': False})
@@ -1062,6 +1077,9 @@ def _scan_search(roots, query_lower):
         if all_items:
             is_fuzzy = True
 
+    logger.warning(f"[LMM SEARCH DEBUG] _scan_search returning {len(all_items)} items, is_fuzzy: {is_fuzzy}")
+    if len(all_items) >= 2:
+        logger.warning(f"[LMM SEARCH DEBUG] First 2 items: [{all_items[0]['path']}, {all_items[1]['path']}]")
     return {'items': all_items, 'fuzzy': is_fuzzy}
 
 
@@ -1147,7 +1165,10 @@ async def get_local_images(request):
             search_result = await get_search_results(roots, search_query, force_refresh)
             search_items = search_result['items']
             is_fuzzy = search_result['fuzzy']
+            comfy_prefix = comfy_dir.rstrip("/") + "/"
             for item in search_items:
+                if item['path'].startswith(comfy_prefix):
+                    item = {**item, 'path': item['path'][len(comfy_prefix):]}
                 if not check_tags(item.get('tags', [])):
                     continue
                 item_type = item['type']
