@@ -1102,6 +1102,28 @@ async def get_search_results(roots, query, force_refresh=False):
         dir_cache.put(cache_key, result)
         return result
 
+def _resolve_scope_roots(search_scopes, directory):
+    comfy_dir = os.path.dirname(os.path.dirname(NODE_DIR))
+    input_dir = os.path.join(comfy_dir, "input")
+    output_dir = os.path.join(comfy_dir, "output")
+    roots = []
+    for scope in search_scopes:
+        if scope == 'current':
+            if directory:
+                roots.append(directory)
+        elif scope == 'input':
+            roots.append(input_dir)
+        elif scope == 'output':
+            roots.append(output_dir)
+        elif scope == 'saved':
+            config = load_config()
+            saved = config.get("saved_paths", [])
+            for sp in saved:
+                if sp:
+                    abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
+                    roots.append(abs_sp)
+    return roots
+
 @prompt_server.routes.get("/local_image_gallery/images")
 async def get_local_images(request):
     directory = request.query.get('directory', '')
@@ -1142,25 +1164,7 @@ async def get_local_images(request):
 
         if search_query:
             comfy_dir = os.path.dirname(os.path.dirname(NODE_DIR))
-            input_dir = os.path.join(comfy_dir, "input")
-            output_dir = os.path.join(comfy_dir, "output")
-
-            roots = []
-            for scope in search_scopes:
-                if scope == 'current':
-                    if directory:
-                        roots.append(directory)
-                elif scope == 'input':
-                    roots.append(input_dir)
-                elif scope == 'output':
-                    roots.append(output_dir)
-                elif scope == 'saved':
-                    config = load_config()
-                    saved = config.get("saved_paths", [])
-                    for sp in saved:
-                        if sp:
-                            abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
-                            roots.append(abs_sp)
+            roots = _resolve_scope_roots(search_scopes, directory)
 
             search_result = await get_search_results(roots, search_query, force_refresh)
             search_items = search_result['items']
@@ -1179,8 +1183,13 @@ async def get_local_images(request):
                     all_items_with_meta.append(item)
 
         elif search_mode == 'global' and filter_tags:
-            metadata = load_metadata()
+            roots = _resolve_scope_roots(search_scopes, directory)
+            resolved_roots = [os.path.realpath(r).rstrip(os.sep) + os.sep for r in roots]
+            metadata = load_metadata() if resolved_roots else {}
             for path, meta in metadata.items():
+                real_path = os.path.realpath(path)
+                if not any(real_path.startswith(root) or real_path.rstrip(os.sep) + os.sep == root for root in resolved_roots):
+                    continue
                 if os.path.exists(path):
                     if check_tags(meta.get('tags', [])):
                         ext = os.path.splitext(path)[1].lower()
