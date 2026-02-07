@@ -663,6 +663,8 @@ app.registerExtension({
                         #${uniqueId} .lmm-tag-filter-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
                         #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
                         #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button { display: block; }
+                        #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button + .lmm-search-info-button { display: none; }
+                        #${uniqueId} .lmm-search-info-button { position: absolute; right: 0px; color: #777; cursor: pointer; font-size: 13px; padding: 2px 4px; user-select: none; }
                         #${uniqueId} .lmm-search-scope-container { flex-shrink: 0; }
                         #${uniqueId} .lmm-scope-icons { display: flex; gap: 2px; font-size: 14px; line-height: 1; align-items: center; }
                         #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
@@ -691,6 +693,7 @@ app.registerExtension({
                             <div class="lmm-search-wrapper">
                                 <input type="text" class="lmm-search-input" placeholder="Search by filename...">
                                 <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
+                                <span class="lmm-search-info-button">❓</span>
                             </div>
                             <label>in</label>
                             <div class="lmm-search-scope-container">
@@ -885,6 +888,176 @@ app.registerExtension({
                     el.addEventListener('mouseenter', () => showScopeTip(el));
                     el.addEventListener('mouseleave', hideScopeTip);
                 });
+
+                // Search guide dialog — appended to body to avoid transform containment
+                const searchInfoBtn = controls.querySelector(".lmm-search-info-button");
+                let guideOpen = false;
+
+                // Small hint tooltip
+                const searchInfoHint = document.createElement('div');
+                Object.assign(searchInfoHint.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#999', fontSize: '20px',
+                    padding: '4px 10px', borderRadius: '4px', border: '1px solid #444',
+                    pointerEvents: 'none', zIndex: '10001', whiteSpace: 'nowrap',
+                    opacity: '0', transition: 'opacity 0.15s',
+                });
+                searchInfoHint.textContent = 'Click the ❓ to show the search guide';
+                document.body.appendChild(searchInfoHint);
+                let hintTimer = null;
+                searchInfoBtn.addEventListener('mouseenter', () => {
+                    if (guideOpen) return;
+                    clearTimeout(hintTimer);
+                    hintTimer = setTimeout(() => {
+                        const rect = searchInfoBtn.getBoundingClientRect();
+                        const vh = window.innerHeight;
+                        searchInfoHint.style.left = Math.max(4, rect.left + rect.width / 2 - searchInfoHint.offsetWidth / 2) + 'px';
+                        if (rect.top < vh * 0.5) {
+                            searchInfoHint.style.top = rect.top - searchInfoHint.offsetHeight - 4 + 'px';
+                        } else {
+                            searchInfoHint.style.top = rect.bottom + 4 + 'px';
+                        }
+                        searchInfoHint.style.opacity = '1';
+                    }, 250);
+                });
+                searchInfoBtn.addEventListener('mouseleave', () => {
+                    clearTimeout(hintTimer);
+                    searchInfoHint.style.opacity = '0';
+                });
+
+                // Guide dialog
+                const searchGuide = document.createElement('div');
+                Object.assign(searchGuide.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#ccc', fontSize: '22px',
+                    borderRadius: '8px', border: '1px solid #444',
+                    zIndex: '10000', lineHeight: '1.5',
+                    opacity: '0', pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column',
+                    transform: 'scale(0.3)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                });
+                // Header
+                const guideHeader = document.createElement('div');
+                Object.assign(guideHeader.style, {
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 16px', borderBottom: '1px solid #444', flexShrink: '0',
+                    cursor: 'default',
+                });
+                guideHeader.innerHTML = [
+                    `<span style="color:#eee;font-weight:600;font-size:22px">Search Guide</span>`,
+                    `<span class="lmm-guide-close" style="color:#999;cursor:pointer;font-size:18px;padding:2px 8px;border-radius:4px">✕</span>`,
+                ].join('');
+                const guideCloseBtn = guideHeader.querySelector('.lmm-guide-close');
+                guideCloseBtn.addEventListener('mouseenter', () => { guideCloseBtn.style.color = '#fff'; });
+                guideCloseBtn.addEventListener('mouseleave', () => { guideCloseBtn.style.color = '#999'; });
+                // Body
+                const guideBody = document.createElement('div');
+                Object.assign(guideBody.style, { padding: '12px 16px', overflowY: 'auto', flex: '1' });
+                const c = (s) => `<code style="background:#333;padding:1px 4px;border-radius:3px">${s}</code>`;
+                const kbd = (s) => `<kbd style="background:#333;padding:1px 5px;border-radius:3px;border:1px solid #555">${s}</kbd>`;
+                guideBody.innerHTML = [
+                    `<div style="color:#bbb"><b style="color:#eee">Substring</b> (default) — matches any part of the filename.</div>`,
+                    `<div style="color:#bbb;margin-top:4px"><b style="color:#eee">Wildcard</b> — use ${c('*')} and ${c('?')} for glob patterns. ${c('*.png')} finds all PNGs.</div>`,
+                    `<div style="color:#bbb;margin-top:4px"><b style="color:#eee">Fuzzy</b> — automatic fallback when no exact matches are found. Tolerates typos (1-2 edits depending on query length). Matches the filename without extension.</div>`,
+                    `<div style="color:#eee;font-weight:600;margin-top:10px;margin-bottom:6px">Scopes</div>`,
+                    `<div style="color:#bbb">The icons to the right (📂📥📤💾🌐) control which directories are searched. Toggle each independently or use 🌐 to toggle all.</div>`,
+                    `<div style="color:#bbb;margin-top:4px">Scopes apply to both filename search and tag filtering — only files within the selected directories are returned.</div>`,
+                    `<div style="color:#888;margin-top:8px;font-size:20px">Press ${kbd('Escape')} to clear the search field.</div>`,
+                ].join('');
+                searchGuide.appendChild(guideHeader);
+                searchGuide.appendChild(guideBody);
+                document.body.appendChild(searchGuide);
+
+                const positionGuide = () => {
+                    const vw = window.innerWidth;
+                    const vh = window.innerHeight;
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const w = Math.min(560, vw - 16);
+                    searchGuide.style.width = w + 'px';
+                    searchGuide.style.maxHeight = (vh - 16) + 'px';
+                    // Center on icon, clamp to viewport
+                    const iconCx = iconRect.left + iconRect.width / 2;
+                    const iconCy = iconRect.top + iconRect.height / 2;
+                    const left = Math.max(8, Math.min(iconCx - w / 2, vw - w - 8));
+                    const guideH = searchGuide.offsetHeight;
+                    const top = Math.max(8, Math.min(iconCy - guideH / 2, vh - guideH - 8));
+                    searchGuide.style.left = left + 'px';
+                    searchGuide.style.top = top + 'px';
+                };
+                // rAF loop to follow graph panning while open
+                let guideRaf = null;
+                const guideLoop = () => {
+                    if (!guideOpen) { guideRaf = null; return; }
+                    positionGuide();
+                    guideRaf = requestAnimationFrame(guideLoop);
+                };
+                const openGuide = () => {
+                    if (guideOpen) return;
+                    guideOpen = true;
+                    positionGuide();
+                    // Measure without transition to compute transform-origin
+                    searchGuide.style.transition = 'none';
+                    searchGuide.style.transform = 'none';
+                    searchGuide.style.opacity = '0';
+                    searchGuide.offsetHeight;
+                    const guideRect = searchGuide.getBoundingClientRect();
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const ox = iconRect.left + iconRect.width / 2 - guideRect.left;
+                    const oy = iconRect.top + iconRect.height / 2 - guideRect.top;
+                    searchGuide.style.transformOrigin = `${ox}px ${oy}px`;
+                    searchGuide.style.transform = 'scale(0.3)';
+                    searchGuide.offsetHeight;
+                    // Animate open
+                    searchGuide.style.transition = 'transform 0.3s ease, opacity 0.25s ease';
+                    searchGuide.style.pointerEvents = 'auto';
+                    searchGuide.style.transform = 'scale(1)';
+                    searchGuide.style.opacity = '1';
+                    // Start tracking position
+                    guideRaf = requestAnimationFrame(guideLoop);
+                };
+                const closeGuide = () => {
+                    if (!guideOpen) return;
+                    guideOpen = false;
+                    if (guideRaf) { cancelAnimationFrame(guideRaf); guideRaf = null; }
+                    const guideRect = searchGuide.getBoundingClientRect();
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const ox = iconRect.left + iconRect.width / 2 - guideRect.left;
+                    const oy = iconRect.top + iconRect.height / 2 - guideRect.top;
+                    searchGuide.style.transformOrigin = `${ox}px ${oy}px`;
+                    searchGuide.style.transform = 'scale(0.3)';
+                    searchGuide.style.opacity = '0';
+                    searchGuide.style.pointerEvents = 'none';
+                };
+                searchInfoBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearTimeout(hintTimer);
+                    searchInfoHint.style.opacity = '0';
+                    if (guideOpen) closeGuide(); else openGuide();
+                });
+                guideCloseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeGuide();
+                });
+                // Close on click-outside but not drag-outside (pointer events
+                // in capture phase — mouse events get suppressed by LiteGraph)
+                let guidePointerDown = null;
+                document.addEventListener('pointerdown', (e) => {
+                    if (guideOpen && !searchGuide.contains(e.target) && e.target !== searchInfoBtn) {
+                        guidePointerDown = { x: e.clientX, y: e.clientY };
+                    }
+                }, true);
+                document.addEventListener('pointerup', (e) => {
+                    if (!guidePointerDown) return;
+                    const dx = e.clientX - guidePointerDown.x;
+                    const dy = e.clientY - guidePointerDown.y;
+                    guidePointerDown = null;
+                    if (dx * dx + dy * dy < 25) closeGuide(); // <5px = click, not drag
+                }, true);
+                document.addEventListener('keydown', (e) => {
+                    if (guideOpen && e.key === 'Escape') {
+                        e.stopPropagation();
+                        closeGuide();
+                    }
+                }, true);
 
                 const clearSearchButton = controls.querySelector(".lmm-clear-search-button");
                 const tagEditor = controls.querySelector(".lmm-tag-editor");
@@ -1592,18 +1765,42 @@ app.registerExtension({
 
                         // Update search status indicator
                         const filterTag = tagFilterInput.value.trim();
-                        const statusParts = [];
-                        if (currentSearchQuery) {
-                            const scopeLabels = { current: 'Current Dir', input: 'Input', output: 'Output', saved: 'Saved Paths' };
-                            const scopeLabel = currentSearchScopes.length === 4 ? 'All' : currentSearchScopes.map(s => scopeLabels[s] || s).join(', ');
-                            const fuzzyLabel = api_data.fuzzy ? ' (fuzzy)' : '';
-                            statusParts.push(`File: "${currentSearchQuery}" in ${scopeLabel}${fuzzyLabel}`);
-                        }
-                        if (filterTag) {
-                            statusParts.push(`Tags: ${filterTag}`);
-                        }
-                        if (statusParts.length) {
-                            searchStatus.querySelector('span').textContent = '\uD83D\uDD0D ' + statusParts.join(' + ');
+                        const hasQuery = !!currentSearchQuery;
+                        const hasTags = !!filterTag;
+                        if (hasQuery || hasTags) {
+                            // Build criteria: "query" and/or tags: [t1, t2]
+                            const criteriaParts = [];
+                            if (hasQuery) {
+                                const fuzzyLabel = api_data.fuzzy ? ' (fuzzy)' : '';
+                                criteriaParts.push(`"${currentSearchQuery}"${fuzzyLabel}`);
+                            }
+                            if (hasTags) {
+                                const tags = filterTag.split(',').map(t => t.trim()).filter(Boolean);
+                                criteriaParts.push(`tags: [${tags.join(', ')}]`);
+                            }
+                            // Build scope label
+                            let scopeLabel;
+                            if (currentSearchScopes.length === 4) {
+                                scopeLabel = 'all scopes';
+                            } else {
+                                const scopeParts = [];
+                                const dirScopes = [];
+                                if (currentSearchScopes.includes('current') && directory) {
+                                    let dirPath = directory.replace(/\\/g, '/');
+                                    if (!dirPath.endsWith('/')) dirPath += '/';
+                                    dirScopes.push(dirPath);
+                                }
+                                if (currentSearchScopes.includes('input') && currentSearchScopes.includes('output')) {
+                                    dirScopes.push('input/ & output/');
+                                } else {
+                                    if (currentSearchScopes.includes('input')) dirScopes.push('input/');
+                                    if (currentSearchScopes.includes('output')) dirScopes.push('output/');
+                                }
+                                if (dirScopes.length) scopeParts.push(dirScopes.join(', '));
+                                if (currentSearchScopes.includes('saved')) scopeParts.push('all saved paths');
+                                scopeLabel = scopeParts.join(' and ');
+                            }
+                            searchStatus.querySelector('span').textContent = `\uD83D\uDD0D Searching media with ${criteriaParts.join(' and ')} in ${scopeLabel}`;
                             searchStatus.style.display = 'block';
                         } else {
                             searchStatus.style.display = 'none';
