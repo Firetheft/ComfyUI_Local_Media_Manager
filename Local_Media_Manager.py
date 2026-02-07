@@ -26,6 +26,17 @@ logger = logging.getLogger(__name__)
 VAE_STRIDE = (4, 8, 8)
 PATCH_SIZE = (1, 2, 2)
 
+def validate_path(path):
+    """Validate a file path, blocking directory traversal.
+    Accepts both relative and absolute paths.
+    Returns the normalized path, or None if the path is invalid/unsafe."""
+    if not path:
+        return None
+    path = path.replace("\\", "/")
+    if ".." in path.split("/"):
+        return None
+    return os.path.normpath(path)
+
 NODE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(NODE_DIR, "config.json")
 METADATA_FILE = os.path.join(NODE_DIR, "metadata.json")
@@ -830,9 +841,9 @@ prompt_server = server.PromptServer.instance
 async def update_metadata(request):
     try:
         data = await request.json()
-        path = data.get("path", "").replace("\\", "/")
+        path = validate_path(data.get("path", ""))
         rating, tags = data.get("rating"), data.get("tags")
-        if not path or not os.path.isabs(path): return web.json_response({"status": "error", "message": "Invalid path."}, status=400)
+        if not path: return web.json_response({"status": "error", "message": "Invalid path."}, status=400)
 
 
         metadata = load_metadata()
@@ -1387,10 +1398,8 @@ def get_thumbnail_cache_path(filepath, is_video=False):
 
 @prompt_server.routes.get("/local_image_gallery/thumbnail")
 async def get_thumbnail(request):
-    filepath = request.query.get('filepath')
-    if not filepath or ".." in filepath: return web.Response(status=400)
-
-    filepath = urllib.parse.unquote(filepath)
+    filepath = validate_path(urllib.parse.unquote(request.query.get('filepath', '')))
+    if not filepath: return web.Response(status=400)
     if not os.path.exists(filepath): return web.Response(status=404)
 
     ext = os.path.splitext(filepath)[1].lower()
@@ -1429,9 +1438,8 @@ async def get_thumbnail(request):
 
 @prompt_server.routes.get("/local_image_gallery/view")
 async def view_image(request):
-    filepath = request.query.get('filepath')
-    if not filepath or ".." in filepath: return web.Response(status=400)
-    filepath = urllib.parse.unquote(filepath)
+    filepath = validate_path(urllib.parse.unquote(request.query.get('filepath', '')))
+    if not filepath: return web.Response(status=400)
     if not os.path.exists(filepath): return web.Response(status=404)
     try: return web.FileResponse(filepath)
     except: return web.Response(status=500)
@@ -1450,7 +1458,8 @@ async def delete_files(request):
         dir_cache.invalidate()
 
         for filepath in filepaths:
-            if not filepath or not os.path.isabs(filepath) or ".." in filepath:
+            filepath = validate_path(filepath)
+            if not filepath:
                 continue
             if not os.path.isfile(filepath):
                 continue
@@ -1487,9 +1496,9 @@ async def move_files(request):
         if not isinstance(source_paths, list) or not destination_dir:
             return web.json_response({"status": "error", "message": "Invalid data format."}, status=400)
 
-        normalized_destination_dir = os.path.normpath(destination_dir)
+        normalized_destination_dir = validate_path(destination_dir)
 
-        if not os.path.isabs(normalized_destination_dir) or not os.path.isdir(normalized_destination_dir):
+        if not normalized_destination_dir or not os.path.isdir(normalized_destination_dir):
             return web.json_response({"status": "error", "message": "Invalid or unsafe destination directory."}, status=400)
 
         metadata = load_metadata()
@@ -1498,9 +1507,9 @@ async def move_files(request):
 
         for original_source_path in source_paths:
             try:
-                normalized_source_path = os.path.normpath(original_source_path)
+                normalized_source_path = validate_path(original_source_path)
 
-                if not normalized_source_path or not os.path.isabs(normalized_source_path) or not os.path.isfile(normalized_source_path):
+                if not normalized_source_path or not os.path.isfile(normalized_source_path):
                     continue
 
                 source_dir = os.path.dirname(normalized_source_path)
@@ -1551,7 +1560,8 @@ async def rename_file(request):
         old_path = data.get("old_path")
         new_name = data.get("new_name")
 
-        if not old_path or not os.path.isabs(old_path) or not os.path.isfile(old_path):
+        old_path = validate_path(old_path)
+        if not old_path or not os.path.isfile(old_path):
             return web.json_response({"status": "error", "message": "Invalid or non-existent source file."}, status=400)
 
         if not new_name or "/" in new_name or "\\" in new_name:
