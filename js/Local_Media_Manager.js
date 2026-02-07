@@ -668,7 +668,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
                         #${uniqueId} .lmm-scope-icons span.inactive { opacity: 0.2; }
                         #${uniqueId} .lmm-scope-icons .lmm-scope-divider { width: 1px; height: 14px; background: #555; margin: 0 2px; cursor: default; }
-                        #${uniqueId} .lmm-search-status { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; color: #aaa; padding: 1px 8px; white-space: nowrap; z-index: 5; pointer-events: none; background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; }
+                        #${uniqueId} .lmm-search-status { display: none; position: sticky; top: 0; left: 50%; transform: translateX(-50%); font-size: 11px; color: #aaa; padding: 1px 8px; white-space: nowrap; z-index: 5; pointer-events: none; background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; width: fit-content; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -690,7 +690,6 @@ app.registerExtension({
                             <div class="lmm-search-wrapper">
                                 <input type="text" class="lmm-search-input" placeholder="Search by filename...">
                                 <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
-                                <div class="lmm-search-status"></div>
                             </div>
                             <label>in</label>
                             <div class="lmm-search-scope-container">
@@ -739,6 +738,7 @@ app.registerExtension({
                             </div>
                             </div>
                         <div class="lmm-cardholder">
+                            <div class="lmm-search-status"></div>
                             <div class="lmm-gallery-placeholder">Enter folder path and click 'Refresh'.</div>
                         </div>
                     </div>
@@ -767,7 +767,7 @@ app.registerExtension({
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
                 const searchInput = controls.querySelector(".lmm-search-input");
-                const searchStatus = controls.querySelector(".lmm-search-status");
+                const searchStatus = cardholder.querySelector(".lmm-search-status");
                 const searchScopeContainer = controls.querySelector(".lmm-search-scope-container");
                 const scopeIcons = searchScopeContainer.querySelectorAll(".lmm-scope-icons span[data-scope]");
                 const scopeAllToggle = searchScopeContainer.querySelector(".lmm-scope-all");
