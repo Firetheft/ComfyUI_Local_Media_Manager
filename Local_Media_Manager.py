@@ -124,7 +124,7 @@ def extract_prompts(metadata):
                 if str(link[1]) == str(origin_node_id) and link[2] == origin_slot_index:
                     target_node = nodes_by_id.get(str(link[3]))
                     if not target_node: continue
-                    
+
                     node_type = target_node.get('type', '').lower()
                     prop_name = target_node.get('properties', {}).get('Node name for S&R', '').lower()
                     if any(k in node_type or k in prop_name for k in display_keywords):
@@ -136,7 +136,7 @@ def extract_prompts(metadata):
             if not any('link' in i for i in node.get('inputs', []) if i.get('type') == 'STRING'):
                 widgets = node.get('widgets_values', [])
                 return next((w for w in widgets if isinstance(w, str)), "")
-            
+
             combined_text = ""
             for inp in node.get('inputs', []):
                 if inp.get('type') == 'STRING' and 'link' in inp:
@@ -144,7 +144,7 @@ def extract_prompts(metadata):
                     if link_info:
                         combined_text += resolve_text_fallback(nodes_by_id[str(link_info[1])])
             return combined_text
-        
+
         def is_sampler(node):
             return 'Sampler' in node.get('type', '')
 
@@ -153,7 +153,7 @@ def extract_prompts(metadata):
             start_node_id = str(start_node['id'])
             if start_node_id in visited: return False
             visited.add(start_node_id)
-            
+
             if is_sampler(start_node):
                 return True
 
@@ -211,33 +211,33 @@ class LocalMediaManagerNode:
         m = hashlib.sha256()
         m.update(str(selection).encode())
         m.update(str(current_path).encode())
-        
+
         try:
             selections_list = json.loads(selection)
             input_dir = folder_paths.get_input_directory()
-            
+
             for item in selections_list:
                 path = item.get('path')
                 if path and os.path.exists(path):
                     mtime = os.path.getmtime(path)
                     m.update(str(mtime).encode())
-                    
+
                     filename = os.path.basename(path)
                     name, _ = os.path.splitext(filename)
                     mask_filename = f"{name}_mask.png"
-                    
+
                     input_mask_path = os.path.join(input_dir, mask_filename)
                     if os.path.exists(input_mask_path):
                         mask_mtime = os.path.getmtime(input_mask_path)
                         m.update(str(mask_mtime).encode())
                         m.update(str(input_mask_path).encode())
-                    
+
                     original_mask_path = os.path.join(os.path.dirname(path), mask_filename)
                     if os.path.exists(original_mask_path):
                         mask_mtime = os.path.getmtime(original_mask_path)
                         m.update(str(mask_mtime).encode())
                         m.update(str(original_mask_path).encode())
-                    
+
         except Exception:
             pass
 
@@ -265,9 +265,9 @@ class LocalMediaManagerNode:
             selections_list = json.loads(selection)
         except (json.JSONDecodeError, TypeError):
             selections_list = []
-        
+
         image_paths = [item['path'] for item in selections_list if item.get('type') == 'image' and 'path' in item]
-        
+
         final_image_tensor = torch.zeros(1, 1, 1, 3)
         info_strings = []
         valid_image_paths = []
@@ -276,7 +276,7 @@ class LocalMediaManagerNode:
         if image_paths:
             sizes = {}
             batch_has_alpha = False
-            
+
             for media_path in image_paths:
                 if os.path.exists(media_path):
                     try:
@@ -291,7 +291,7 @@ class LocalMediaManagerNode:
             if valid_image_paths:
                 dominant_size = max(sizes.items(), key=lambda x: x[1])[0]
                 target_width, target_height = dominant_size
-                
+
                 target_mode = "RGBA" if batch_has_alpha else "RGB"
                 image_tensors = []
 
@@ -299,7 +299,7 @@ class LocalMediaManagerNode:
                     try:
                         with Image.open(media_path) as img:
                             img_out = img.convert(target_mode)
-                            
+
                             if img.size[0] != target_width or img.size[1] != target_height:
                                 img_array_pre = np.array(img_out).astype(np.float32) / 255.0
                                 tensor_pre = torch.from_numpy(img_array_pre)[None,].permute(0, 3, 1, 2)
@@ -307,7 +307,7 @@ class LocalMediaManagerNode:
                                 img_array = tensor_post.permute(0, 2, 3, 1).cpu().numpy().squeeze(0)
                             else:
                                 img_array = np.array(img_out).astype(np.float32) / 255.0
-                            
+
                             image_tensor = torch.from_numpy(img_array)[None,]
                             image_tensors.append(image_tensor)
 
@@ -326,20 +326,20 @@ class LocalMediaManagerNode:
                     if final_image_tensor.shape[-1] == 4:
                         if torch.min(final_image_tensor[:, :, :, 3]) > 0.9999:
                             final_image_tensor = final_image_tensor[:, :, :, :3]
-        
+
         mask_tensor = None
         if final_image_tensor is not None and final_image_tensor.nelement() > 0:
             h, w = final_image_tensor.shape[1], final_image_tensor.shape[2]
-            
+
             if valid_image_paths and final_image_tensor.shape[0] == 1:
                 first_image_path = valid_image_paths[0]
-                
+
                 filename = os.path.basename(first_image_path)
                 name, _ = os.path.splitext(filename)
                 input_dir = folder_paths.get_input_directory()
-                
+
                 input_mask_path = os.path.join(input_dir, f"{name}_mask.png")
-                
+
                 original_dir_mask_path = os.path.join(os.path.dirname(first_image_path), f"{name}_mask.png")
 
                 mask_file_to_load = None
@@ -353,12 +353,12 @@ class LocalMediaManagerNode:
                         with Image.open(mask_file_to_load) as mask_img:
                             if mask_img.width != w or mask_img.height != h:
                                 mask_img = mask_img.resize((w, h), Image.NEAREST)
-                            
+
                             if 'A' in mask_img.getbands():
                                 mask_data = mask_img.split()[-1]
                             else:
                                 mask_data = mask_img.convert("L")
-                            
+
                             mask_np = np.array(mask_data).astype(np.float32) / 255.0
                             mask_tensor = torch.from_numpy(mask_np).unsqueeze(0)
 
@@ -373,7 +373,7 @@ class LocalMediaManagerNode:
                                 inverted_alpha = 1.0 - alpha
                                 mask_tensor = torch.from_numpy(inverted_alpha).unsqueeze(0)
                     except: pass
-            
+
             if mask_tensor is None:
                  mask_tensor = torch.zeros(final_image_tensor.shape[0], h, w, dtype=torch.float32)
 
@@ -411,7 +411,7 @@ class LocalMediaManagerNode:
             except Exception as e:
                 print(f"LMM: Could not parse workflow info, falling back to default. Error: {e}")
                 pass
-        
+
         full_selection_json_string = json.dumps(enriched_selection_list, ensure_ascii=False)
 
         single_path_out = ""
@@ -463,7 +463,7 @@ def target_size(width, height, custom_width, custom_height):
     else:
         width = custom_width
         height = custom_height
-    
+
     downscale_ratio = 8
     width = int(width / downscale_ratio + 0.5) * downscale_ratio
     height = int(height / downscale_ratio + 0.5) * downscale_ratio
@@ -475,7 +475,7 @@ def get_audio(file_path, start_time=0, duration=0):
         args += ["-ss", str(start_time)]
     if duration > 0:
         args += ["-t", str(duration)]
-    
+
     args += ["-f", "f32le", "-acodec", "pcm_f32le", "-ar", "44100", "-ac", "2", "-"]
 
     try:
@@ -496,7 +496,7 @@ def get_audio(file_path, start_time=0, duration=0):
 
         waveform = torch.from_numpy(np.frombuffer(proc.stdout, dtype=np.float32))
         waveform = waveform.reshape(-1, channels).permute(1, 0)
-        
+
         return {'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate}
 
     except subprocess.CalledProcessError as e:
@@ -554,11 +554,11 @@ def cv_frame_generator(video_path, force_rate, frame_load_cap, skip_first_frames
             continue
 
         yield cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
+
         frames_yielded += 1
         if frame_load_cap > 0 and frames_yielded >= frame_load_cap:
             break
-            
+
     video_cap.release()
 
 class SelectOriginalImageNode:
@@ -582,7 +582,7 @@ class SelectOriginalImageNode:
 
     def get_original_image(self, paths, index, frame_load_cap, generation_width, generation_height, aspect_ratio_preservation):
         selected_item = parse_selection_and_get_item(paths, index, "image")
-        
+
         empty_return = (torch.zeros(1, 1, 1, 3), 0, 0, "", "")
 
         if not selected_item or 'path' not in selected_item or not os.path.exists(selected_item['path']):
@@ -593,7 +593,7 @@ class SelectOriginalImageNode:
         try:
             with Image.open(selected_path) as img:
                 H_orig, W_orig = img.height, img.width
-                
+
                 img_out = img.convert("RGBA") if 'A' in img.getbands() else img.convert("RGB")
                 img_array = np.array(img_out).astype(np.float32) / 255.0
                 image_tensor = torch.from_numpy(img_array)[None,]
@@ -608,18 +608,18 @@ class SelectOriginalImageNode:
                         aspect_ratio = generation_height / generation_width if generation_width > 0 else 1.0
                         if aspect_ratio_preservation == "crop_to_new":
                             crop = "center"
-                    
+
                     lat_h = round(np.sqrt(max_area * aspect_ratio) / VAE_STRIDE[1] / PATCH_SIZE[1]) * PATCH_SIZE[1]
                     lat_w = round(np.sqrt(max_area / aspect_ratio) / VAE_STRIDE[2] / PATCH_SIZE[2]) * PATCH_SIZE[2]
                     h_new = int(lat_h * VAE_STRIDE[1])
                     w_new = int(lat_w * VAE_STRIDE[2])
-                    
+
                     processed_image = common_upscale(image_tensor.movedim(-1, 1), w_new, h_new, "lanczos", crop).movedim(1, -1)
                 else:
                     w_new = W_orig
                     h_new = H_orig
                     processed_image = image_tensor
-                
+
                 if frame_load_cap > 1:
                     image_sequence = processed_image.repeat(frame_load_cap, 1, 1, 1)
                 else:
@@ -627,7 +627,7 @@ class SelectOriginalImageNode:
 
                 metadata = selected_item.get('metadata', {})
                 positive_prompt, negative_prompt = extract_prompts(metadata)
-                
+
                 return (image_sequence, w_new, h_new, positive_prompt, negative_prompt,)
         except Exception as e:
             print(f"LMM Selector: Error loading or processing image {selected_path}: {e}")
@@ -663,7 +663,7 @@ class SelectOriginalVideoNode:
 
         if not selected_item or 'path' not in selected_item or not os.path.exists(selected_item['path']):
             return empty_return
-        
+
         selected_path = selected_item['path']
 
         audio_fps_estimate = force_rate if force_rate > 0 else 30
@@ -671,7 +671,7 @@ class SelectOriginalVideoNode:
         try:
             frame_generator = cv_frame_generator(selected_path, force_rate, frame_load_cap, skip_first_frames, select_every_nth)
             source_info = next(frame_generator)
-            
+
             H_orig = source_info.get("height", 0)
             W_orig = source_info.get("width", 0)
             video_fps = source_info.get("fps", 0.0)
@@ -687,7 +687,7 @@ class SelectOriginalVideoNode:
                     aspect_ratio = generation_height / generation_width if generation_width > 0 else 1.0
                     if aspect_ratio_preservation == "crop_to_new":
                         crop = "center"
-                
+
                 lat_h = round(np.sqrt(max_area * aspect_ratio) / VAE_STRIDE[1] / PATCH_SIZE[1]) * PATCH_SIZE[1]
                 lat_w = round(np.sqrt(max_area / aspect_ratio) / VAE_STRIDE[2] / PATCH_SIZE[2]) * PATCH_SIZE[2]
                 output_h = int(lat_h * VAE_STRIDE[1])
@@ -699,20 +699,20 @@ class SelectOriginalVideoNode:
 
             output_fps = force_rate if force_rate > 0 else video_fps
             frames = list(frame_generator)
-            
-            if not frames: 
+
+            if not frames:
                 return (torch.zeros(1, 1, 1, 3), 0, output_w, output_h, output_fps, audio_data, json.dumps(source_info))
 
             processed_frames = []
             for frame in frames:
                 tensor_frame = torch.from_numpy(frame).float() / 255.0
                 tensor_frame = tensor_frame.unsqueeze(0)
-                
+
                 if should_resize:
                     resized_frame = common_upscale(tensor_frame.movedim(-1, 1), output_w, output_h, "lanczos", crop).movedim(1, -1)
                 else:
                     resized_frame = tensor_frame
-                
+
                 processed_frames.append(resized_frame.squeeze(0))
 
             final_tensor = torch.stack(processed_frames)
@@ -720,7 +720,7 @@ class SelectOriginalVideoNode:
         except Exception as e:
             print(f"LMM Selector: Error loading or resizing video frames from {selected_path}: {e}")
             return empty_return
-        
+
 class SelectOriginalAudioNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -743,7 +743,7 @@ class SelectOriginalAudioNode:
 
         if not selected_item or 'path' not in selected_item:
             return (None, 0.0)
-            
+
         selected_path = selected_item['path']
 
         audio_data = get_audio(selected_path, start_time=seek_seconds, duration=duration)
@@ -754,7 +754,7 @@ class SelectOriginalAudioNode:
             loaded_duration = waveform.shape[-1] / sample_rate
             return (audio_data, loaded_duration)
         else:
-            return (None, 0.0)  
+            return (None, 0.0)
 
 prompt_server = server.PromptServer.instance
 
@@ -765,15 +765,15 @@ async def update_metadata(request):
         path = validate_path(data.get("path", ""))
         rating, tags = data.get("rating"), data.get("tags")
         if not path: return web.json_response({"status": "error", "message": "Invalid path."}, status=400)
-        
+
         metadata = load_metadata()
 
-        if path not in metadata: 
+        if path not in metadata:
             metadata[path] = {}
 
-        if rating is not None: 
+        if rating is not None:
             metadata[path]['rating'] = int(rating)
-        if tags is not None: 
+        if tags is not None:
             metadata[path]['tags'] = [str(tag).strip() for tag in tags if str(tag).strip()]
 
         entry = metadata.get(path, {})
@@ -785,7 +785,7 @@ async def update_metadata(request):
 
         save_metadata(metadata)
         return web.json_response({"status": "ok", "message": "Metadata updated"})
-    except Exception as e: 
+    except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @prompt_server.routes.get("/local_image_gallery/get_saved_paths")
@@ -815,7 +815,7 @@ async def get_all_tags(request):
             if isinstance(tags, list):
                 for tag in tags:
                     all_tags.add(tag)
-        
+
         sorted_tags = sorted(list(all_tags), key=lambda s: s.lower())
         return web.json_response({"tags": sorted_tags})
     except Exception as e:
@@ -824,7 +824,7 @@ async def get_all_tags(request):
 def get_cached_directory_data(directory, force_refresh=False):
     now = time.time()
     cache_key = directory
-    
+
     if not force_refresh and cache_key in DIRECTORY_CACHE:
         cached_data, timestamp = DIRECTORY_CACHE[cache_key]
         if now - timestamp < CACHE_LIFETIME:
@@ -836,7 +836,7 @@ def get_cached_directory_data(directory, force_refresh=False):
     def video_has_workflow(filepath):
         try:
             with open(filepath, 'rb') as f:
-                chunk = f.read(4 * 1024 * 1024) 
+                chunk = f.read(4 * 1024 * 1024)
                 return b'"workflow":' in chunk or b'"prompt":' in chunk
         except Exception:
             return False
@@ -851,10 +851,10 @@ def get_cached_directory_data(directory, force_refresh=False):
             stats = os.stat(raw_full_path)
             item_meta = metadata.get(full_path, {})
             item_data = {
-                'path': full_path, 
-                'name': item, 
-                'mtime': stats.st_mtime, 
-                'rating': item_meta.get('rating', 0), 
+                'path': full_path,
+                'name': item,
+                'mtime': stats.st_mtime,
+                'rating': item_meta.get('rating', 0),
                 'tags': item_meta.get('tags', [])
             }
             if os.path.isdir(full_path):
@@ -915,7 +915,7 @@ async def get_local_images(request):
                 return all(ft in lower_item_tags for ft in filter_tags)
             else:
                 return any(ft in lower_item_tags for ft in filter_tags)
-        
+
         if search_mode == 'global' and filter_tags:
             metadata = load_metadata()
             for path, meta in metadata.items():
@@ -953,9 +953,9 @@ async def get_local_images(request):
             for item in directory_items:
                 if not check_tags(item.get('tags', [])):
                     continue
-                
+
                 item_type = item['type']
-                if (item_type == 'dir' or 
+                if (item_type == 'dir' or
                     (show_images and item_type == 'image') or
                     (show_videos and item_type == 'video') or
                     (show_audio and item_type == 'audio')):
@@ -970,19 +970,19 @@ async def get_local_images(request):
                     pinned_items_dict[path] = item
                 else:
                     remaining_items.append(item)
-            
+
             pinned_items = []
             for path in selected_paths:
                 if pinned_items_dict[path]:
                     pinned_items.append(pinned_items_dict[path])
-            
+
             all_items_with_meta = remaining_items
 
         reverse_order = sort_order == 'desc'
         if sort_by == 'date': all_items_with_meta.sort(key=lambda x: x['mtime'], reverse=reverse_order)
         elif sort_by == 'rating': all_items_with_meta.sort(key=lambda x: x.get('rating', 0), reverse=reverse_order)
         else: all_items_with_meta.sort(key=lambda x: x['name'].lower(), reverse=reverse_order)
-        
+
         if search_mode != 'global':
             all_items_with_meta.sort(key=lambda x: x['type'] != 'dir')
 
@@ -995,13 +995,13 @@ async def get_local_images(request):
         start = (page - 1) * per_page
         end = start + per_page
         paginated_items = all_items_with_meta[start:end]
-        
+
         return web.json_response({
             "items": paginated_items, "total_pages": (len(all_items_with_meta) + per_page - 1) // per_page,
             "current_page": page, "current_directory": directory, "parent_directory": parent_directory,
             "is_global_search": search_mode == 'global' and filter_tags
         })
-    except Exception as e: 
+    except Exception as e:
         print(f"LMM Error: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
@@ -1042,11 +1042,11 @@ async def get_selected_items(request):
                     item_meta = metadata.get(path, {})
 
                     item_info = {
-                        'path': path, 
-                        'name': os.path.basename(path), 
+                        'path': path,
+                        'name': os.path.basename(path),
                         'type': item_data.get("type"),
-                        'mtime': stats.st_mtime, 
-                        'rating': item_meta.get('rating', 0), 
+                        'mtime': stats.st_mtime,
+                        'rating': item_meta.get('rating', 0),
                         'tags': item_meta.get('tags', [])
                     }
                     if item_data.get("type") == 'image':
@@ -1068,7 +1068,7 @@ async def get_selected_items(request):
             "current_page": 1,
             "current_directory": "Selected Items",
             "parent_directory": None,
-            "is_global_search": False 
+            "is_global_search": False
         })
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -1116,7 +1116,7 @@ async def get_thumbnail(request):
 
     ext = os.path.splitext(filepath)[1].lower()
     is_video = ext in SUPPORTED_VIDEO_EXTENSIONS
-    
+
     cache_path = get_thumbnail_cache_path(filepath, is_video)
 
     if os.path.exists(cache_path) and os.path.getmtime(cache_path) > os.path.getmtime(filepath):
@@ -1166,7 +1166,7 @@ async def delete_files(request):
 
         metadata = load_metadata()
         metadata_changed = False
-        
+
         DIRECTORY_CACHE.clear()
 
         for filepath in filepaths:
@@ -1181,7 +1181,7 @@ async def delete_files(request):
                 cache_path = get_thumbnail_cache_path(filepath, is_video)
                 if os.path.exists(cache_path):
                     os.remove(cache_path)
-                
+
                 send2trash(os.path.normpath(filepath))
 
                 if filepath in metadata:
@@ -1189,7 +1189,7 @@ async def delete_files(request):
                     metadata_changed = True
             except Exception as e:
                 print(f"LMM: Error sending file to trash {os.path.normpath(filepath)}: {e}")
-        
+
         if metadata_changed:
             save_metadata(metadata)
 
@@ -1263,7 +1263,7 @@ async def move_files(request):
         return web.json_response({"status": "ok", "message": "Move operation completed.", "errors": errors})
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
-    
+
 @prompt_server.routes.post("/local_image_gallery/rename_file")
 async def rename_file(request):
     DIRECTORY_CACHE.clear()
@@ -1305,7 +1305,7 @@ async def rename_file(request):
 
         return web.json_response({"status": "ok", "message": "File renamed successfully.", "new_path": new_path})
     except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)}, status=500)    
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @prompt_server.routes.post("/local_image_gallery/save_mask")
 async def save_mask(request):
@@ -1313,17 +1313,17 @@ async def save_mask(request):
         data = await request.json()
         image_path = data.get("image_path")
         mask_data_base64 = data.get("mask_data")
-        
+
         if not image_path or not mask_data_base64:
             return web.json_response({"status": "error", "message": "Missing parameters"}, status=400)
 
         filename = os.path.basename(image_path)
         name, _ = os.path.splitext(filename)
         input_dir = folder_paths.get_input_directory()
-        
+
         mask_filename = f"{name}_mask.png"
         mask_path = os.path.join(input_dir, mask_filename)
-        
+
         img_data = base64.b64decode(mask_data_base64.split(',')[1])
         with Image.open(io.BytesIO(img_data)) as img:
             if 'A' in img.getbands():
@@ -1338,22 +1338,22 @@ async def save_mask(request):
                     print(f"LMM: Empty mask detected, deleted {mask_filename}")
                 else:
                     print(f"LMM: Empty mask detected, nothing to save.")
-                
+
                 return web.json_response({"status": "ok", "message": "Empty mask, file cleared"})
-            
+
             mask_img.save(mask_path, "PNG")
-            
+
         return web.json_response({"status": "ok", "mask_path": mask_path})
     except Exception as e:
         print(f"LMM Error saving mask: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
-    
+
 @prompt_server.routes.post("/local_image_gallery/delete_mask")
 async def delete_mask(request):
     try:
         data = await request.json()
         image_path = data.get("image_path")
-        
+
         if not image_path:
             return web.json_response({"status": "error", "message": "Missing image_path"}, status=400)
 
@@ -1361,14 +1361,14 @@ async def delete_mask(request):
         name, _ = os.path.splitext(filename)
         input_dir = folder_paths.get_input_directory()
         mask_filename = f"{name}_mask.png"
-        
+
         deleted = False
-        
+
         input_mask_path = os.path.join(input_dir, mask_filename)
         if os.path.exists(input_mask_path):
             os.remove(input_mask_path)
             deleted = True
-            
+
         original_dir_mask_path = os.path.join(os.path.dirname(image_path), mask_filename)
         if os.path.exists(original_dir_mask_path):
             os.remove(original_dir_mask_path)
@@ -1378,7 +1378,7 @@ async def delete_mask(request):
             return web.json_response({"status": "ok", "message": "Mask deleted"})
         else:
             return web.json_response({"status": "ok", "message": "No mask found to delete"})
-            
+
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
@@ -1387,24 +1387,24 @@ async def get_mask_path(request):
     try:
         data = await request.json()
         image_path = data.get("image_path")
-        
+
         if not image_path:
             return web.json_response({"status": "error", "message": "Missing image_path"}, status=400)
 
         filename = os.path.basename(image_path)
         name, _ = os.path.splitext(filename)
         input_dir = folder_paths.get_input_directory()
-        
+
         input_mask_path = os.path.join(input_dir, f"{name}_mask.png")
         if os.path.exists(input_mask_path):
              return web.json_response({"status": "ok", "mask_path": input_mask_path})
-             
+
         original_dir_mask_path = os.path.join(os.path.dirname(image_path), f"{name}_mask.png")
         if os.path.exists(original_dir_mask_path):
              return web.json_response({"status": "ok", "mask_path": original_dir_mask_path})
 
         return web.json_response({"status": "ok", "mask_path": None})
-        
+
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
