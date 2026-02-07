@@ -615,8 +615,7 @@ app.registerExtension({
                             border-radius: 4px; cursor: pointer; flex-shrink: 0;
                         }
                         #${uniqueId} .lmm-clear-tag-filter-button {
-                            background: none;
-                            display: none;
+                            background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px;
                         }
                         #${uniqueId} .lmm-tag-filter-wrapper input:not(:placeholder-shown) + .lmm-clear-tag-filter-button {
                             display: block;
