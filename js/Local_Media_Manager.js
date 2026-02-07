@@ -636,6 +636,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-search-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
                         #${uniqueId} .lmm-search-wrapper input { flex-grow: 1; transition: box-shadow 0.2s; }
                         #${uniqueId} .lmm-search-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
+                        #${uniqueId} .lmm-search-input:disabled { opacity: 0.4; cursor: not-allowed; }
                         #${uniqueId} .lmm-tag-filter-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
                         #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
                         #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button { display: block; }
@@ -644,7 +645,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
                         #${uniqueId} .lmm-scope-icons span.inactive { opacity: 0.2; }
                         #${uniqueId} .lmm-scope-icons .lmm-scope-divider { width: 1px; height: 14px; background: #555; margin: 0 2px; cursor: default; }
-                        #${uniqueId} .lmm-search-status { display: none; text-align: center; font-size: 11px; color: #aaa; padding: 2px 0; margin: -6px 0 -2px; }
+                        #${uniqueId} .lmm-search-status { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font-size: 11px; color: #aaa; padding: 1px 8px; white-space: nowrap; z-index: 5; pointer-events: none; background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -666,13 +667,13 @@ app.registerExtension({
                             <div class="lmm-search-wrapper">
                                 <input type="text" class="lmm-search-input" placeholder="Search by filename...">
                                 <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
+                                <div class="lmm-search-status"></div>
                             </div>
                             <label>in</label>
                             <div class="lmm-search-scope-container">
                                 <span class="lmm-scope-icons"><span data-scope="current">📂</span><span data-scope="input">📥</span><span data-scope="output">📤</span><span data-scope="saved">💾</span><span class="lmm-scope-divider"></span><span class="lmm-scope-all">🌐</span></span>
                             </div>
                         </div>
-                        <div class="lmm-search-status"></div>
                         <div class="lmm-controls" style="gap: 5px;">
                             <label>Sort by:</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
                             <label>Order:</label> <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
@@ -756,26 +757,54 @@ app.registerExtension({
                         icon.classList.toggle('inactive', !activeScopes.has(icon.dataset.scope));
                     });
                     scopeAllToggle.classList.toggle('inactive', activeScopes.size < 4);
+                    // Disable search input when no scopes selected
+                    if (activeScopes.size === 0) {
+                        if (!searchInput.disabled && searchInput.value) {
+                            searchInput.dataset.savedValue = searchInput.value;
+                            searchInput.value = '';
+                        }
+                        searchInput.disabled = true;
+                        searchInput.placeholder = 'Enable a search scope to search';
+                    } else {
+                        if (searchInput.disabled) {
+                            if (searchInput.dataset.savedValue) {
+                                searchInput.value = searchInput.dataset.savedValue;
+                                delete searchInput.dataset.savedValue;
+                            }
+                            searchInput.disabled = false;
+                            searchInput.placeholder = 'Search by filename...';
+                        }
+                    }
                 };
 
                 scopeIcons.forEach(icon => {
                     icon.addEventListener('click', () => {
                         const scope = icon.dataset.scope;
+                        const hadQuery = !!(searchInput.value.trim() || searchInput.dataset.savedValue);
                         if (activeScopes.has(scope)) activeScopes.delete(scope);
                         else activeScopes.add(scope);
                         updateScopeDisplay();
-                        if (searchInput.value.trim()) saveStateAndReload(false);
+                        if (hadQuery) {
+                            saveStateAndReload(false);
+                        } else {
+                            saveCurrentControlsState();
+                        }
                     });
                 });
                 scopeAllToggle.addEventListener('click', () => {
                     const allScopes = ['current', 'input', 'output', 'saved'];
+                    const hadQuery = !!(searchInput.value.trim() || searchInput.dataset.savedValue);
                     if (activeScopes.size === allScopes.length) {
                         activeScopes.clear();
                     } else {
                         allScopes.forEach(s => activeScopes.add(s));
                     }
                     updateScopeDisplay();
-                    if (searchInput.value.trim()) saveStateAndReload(false);
+                    if (hadQuery) {
+                        saveStateAndReload(false);
+                    } else {
+                        saveCurrentControlsState();
+                    }
                 });
 
                 // Scope icon tooltips — appended to body to avoid transform containment
@@ -937,8 +966,9 @@ app.registerExtension({
                 breadcrumbEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     // If search is active, clicking breadcrumb cancels search
-                    if (searchInput.value.trim()) {
+                    if (searchInput.value.trim() || searchInput.dataset.savedValue) {
                         searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
                         lastSearchedQuery = '';
                         clearTimeout(searchDebounceTimer);
                         pathInput.value = lastKnownPath;
@@ -1623,6 +1653,7 @@ app.registerExtension({
                     if (type === 'dir') {
                         pathInput.value = path;
                         searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
                         lastSearchedQuery = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
@@ -1769,7 +1800,7 @@ app.registerExtension({
                         show_videos: showVideosCheckbox.checked,
                         show_audio: showAudioCheckbox.checked,
                         filter_tag: tagFilterInput.value,
-                        search_query: searchInput.value,
+                        search_query: searchInput.dataset.savedValue || searchInput.value,
                         search_scopes: getSelectedScopes(),
                         show_selected_mode: showSelectedMode,
                     };
@@ -1890,6 +1921,7 @@ app.registerExtension({
                 });
                 clearSearchButton.addEventListener('click', () => {
                     searchInput.value = '';
+                    delete searchInput.dataset.savedValue;
                     lastSearchedQuery = '';
                     clearTimeout(searchDebounceTimer);
                     saveStateAndReload(false);
@@ -1941,6 +1973,7 @@ app.registerExtension({
                     if (parentDir) {
                         pathInput.value = parentDir;
                         searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
                         lastSearchedQuery = '';
                         tagFilterInput.value = "";
                         resetAndReload(true);
