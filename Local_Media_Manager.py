@@ -877,13 +877,29 @@ def matches_query(query_lower, name_lower):
         return fnmatch.fnmatch(name_lower, query_lower)
     return query_lower in name_lower
 
+def levenshtein_distance(a, b):
+    """Minimum single-char edits (insert, delete, substitute) to transform a into b."""
+    if len(a) < len(b):
+        return levenshtein_distance(b, a)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
+        prev = curr
+    return prev[-1]
+
+
 def fuzzy_match(query_lower, name_lower):
-    """All query chars appear in name in order (with gaps allowed)."""
-    qi = 0
-    for ch in name_lower:
-        if qi < len(query_lower) and ch == query_lower[qi]:
-            qi += 1
-    return qi == len(query_lower)
+    """Levenshtein fuzzy match against filename stem. Auto threshold: 1 for 3-5 chars, 2 for 6+."""
+    qlen = len(query_lower)
+    if qlen <= 2:
+        return False
+    max_dist = 1 if qlen <= 5 else 2
+    stem = name_lower.rsplit('.', 1)[0] if '.' in name_lower else name_lower
+    return levenshtein_distance(query_lower, stem) <= max_dist
 
 def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn):
     """Walk roots and collect matching files and directories."""
@@ -978,7 +994,7 @@ async def get_local_images(request):
     directory = request.query.get('directory', '')
     search_mode = request.query.get('search_mode', 'local')
     search_query = request.query.get('search_query', '').strip()
-    search_scope = request.query.get('search_scope', 'current')
+    search_scopes = request.query.getall('search_scope', ['current'])
     selected_paths = request.query.getall('selected_paths', [])
     force_refresh = request.query.get('force_refresh', 'false').lower() == 'true'
 
@@ -1016,20 +1032,22 @@ async def get_local_images(request):
             input_dir = os.path.join(comfy_dir, "input")
             output_dir = os.path.join(comfy_dir, "output")
 
-            if search_scope == 'current':
-                roots = [directory] if directory else []
-            elif search_scope == 'input':
-                roots = [input_dir]
-            elif search_scope == 'output':
-                roots = [output_dir]
-            else:  # 'all'
-                config = load_config()
-                saved = config.get("saved_paths", [])
-                roots = [input_dir, output_dir]
-                for sp in saved:
-                    if sp:
-                        abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
-                        roots.append(abs_sp)
+            roots = []
+            for scope in search_scopes:
+                if scope == 'current':
+                    if directory:
+                        roots.append(directory)
+                elif scope == 'input':
+                    roots.append(input_dir)
+                elif scope == 'output':
+                    roots.append(output_dir)
+                elif scope == 'saved':
+                    config = load_config()
+                    saved = config.get("saved_paths", [])
+                    for sp in saved:
+                        if sp:
+                            abs_sp = sp if os.path.isabs(sp) else os.path.join(comfy_dir, sp)
+                            roots.append(abs_sp)
 
             search_result = get_recursive_search_results(roots, search_query, force_refresh)
             search_items = search_result['items']
@@ -1227,7 +1245,7 @@ async def get_ui_state(request):
             "show_audio": False,
             "filter_tag": "",
             "search_query": "",
-            "search_scope": "current"
+            "search_scopes": ["current", "input", "output", "saved"]
         }
 
         node_saved_state = ui_states.get(node_key, {})
