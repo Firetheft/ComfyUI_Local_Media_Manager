@@ -1176,6 +1176,7 @@ async def get_local_images(request):
     filter_tags_str = request.query.get('filter_tag', '').strip().lower()
     filter_tags = [tag.strip() for tag in filter_tags_str.split(',') if tag.strip()]
     filter_mode = request.query.get('filter_mode', 'OR').upper()
+    combine_mode = request.query.get('combine_mode', 'AND').upper()
 
     page = int(request.query.get('page', 1))
     per_page = int(request.query.get('per_page', 50))
@@ -1203,17 +1204,58 @@ async def get_local_images(request):
             search_items = search_result['items']
             is_fuzzy = search_result['fuzzy']
             comfy_prefix = comfy_dir.rstrip("/") + "/"
-            for item in search_items:
-                if item['path'].startswith(comfy_prefix):
-                    item = {**item, 'path': item['path'][len(comfy_prefix):]}
-                if not check_tags(item.get('tags', [])):
-                    continue
-                item_type = item['type']
-                if (item_type == 'dir' or
-                    (show_images and item_type == 'image') or
-                    (show_videos and item_type == 'video') or
-                    (show_audio and item_type == 'audio')):
-                    all_items_with_meta.append(item)
+
+            def _type_visible(item_type):
+                return (item_type == 'dir' or
+                        (show_images and item_type == 'image') or
+                        (show_videos and item_type == 'video') or
+                        (show_audio and item_type == 'audio'))
+
+            if combine_mode == 'OR' and filter_tags:
+                # Union: items matching search OR items matching tags
+                seen_paths = set()
+                # All search matches (skip tag check)
+                for item in search_items:
+                    if item['path'].startswith(comfy_prefix):
+                        item = {**item, 'path': item['path'][len(comfy_prefix):]}
+                    if _type_visible(item['type']):
+                        all_items_with_meta.append(item)
+                        seen_paths.add(item['path'])
+                # Tag-matched items from same scope (not already seen)
+                resolved_roots = [os.path.realpath(r).rstrip(os.sep) + os.sep for r in roots]
+                metadata = load_metadata() if resolved_roots else {}
+                for path, meta in metadata.items():
+                    norm_path = path
+                    if path.startswith(comfy_prefix):
+                        norm_path = path[len(comfy_prefix):]
+                    if norm_path in seen_paths:
+                        continue
+                    real_path = os.path.realpath(path)
+                    if not any(real_path.startswith(root) or real_path.rstrip(os.sep) + os.sep == root
+                               for root in resolved_roots):
+                        continue
+                    if os.path.exists(path) and check_tags(meta.get('tags', [])):
+                        ext = os.path.splitext(path)[1].lower()
+                        item_type = _ext_to_type(ext)
+                        if item_type and _type_visible(item_type):
+                            try:
+                                stats = os.stat(path)
+                                built = _build_item(path, os.path.basename(path), stats, item_type, meta=meta)
+                                if path != norm_path:
+                                    built = {**built, 'path': norm_path}
+                                all_items_with_meta.append(built)
+                                seen_paths.add(norm_path)
+                            except Exception:
+                                continue
+            else:
+                # AND mode (current behavior)
+                for item in search_items:
+                    if item['path'].startswith(comfy_prefix):
+                        item = {**item, 'path': item['path'][len(comfy_prefix):]}
+                    if not check_tags(item.get('tags', [])):
+                        continue
+                    if _type_visible(item['type']):
+                        all_items_with_meta.append(item)
 
         elif search_mode == 'global' and filter_tags:
             roots = _resolve_scope_roots(search_scopes, directory)

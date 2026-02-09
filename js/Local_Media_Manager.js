@@ -638,6 +638,10 @@ app.registerExtension({
                             padding: 4px 8px; background-color: #555; color: #fff; border: 1px solid #666;
                             border-radius: 4px; cursor: pointer; flex-shrink: 0;
                         }
+                        #${uniqueId} .lmm-combine-mode-btn {
+                            padding: 4px 8px; background-color: #555; color: #fff; border: 1px solid #666;
+                            border-radius: 4px; cursor: pointer; flex-shrink: 0;
+                        }
                         #${uniqueId} .lmm-clear-tag-filter-button {
                             background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px;
                         }
@@ -701,17 +705,8 @@ app.registerExtension({
                             </div>
                         </div>
                         <div class="lmm-controls" style="gap: 5px;">
-                            <label>Sort by:</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
-                            <label>Order:</label> <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
-                            <div style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
-                                <label>Images:</label> <input type="checkbox" class="lmm-show-images" checked>
-                                <label>Videos:</label> <input type="checkbox" class="lmm-show-videos">
-                                <label>Audio:</label> <input type="checkbox" class="lmm-show-audio">
-                                <button class="lmm-show-selected-btn" title="Show all selected items across folders">Show Selected</button>
-                            </div>
-                        </div>
-                        <div class="lmm-controls" style="gap: 5px;">
-                            <label>Filter by Tag:</label>
+                            <button class="lmm-combine-mode-btn" title="Switch how search query and tag filter combine (AND: both must match, OR: either can match)">AND</button>
+                            <label>by Tag:</label>
                             <button class="lmm-tag-filter-mode-btn" title="Click to switch filter logic (OR/AND)">OR</button>
                             <div class="lmm-tag-filter-wrapper">
                                 <input type="text" class="lmm-tag-filter-input" placeholder="Enter tags, separated by commas...">
@@ -726,9 +721,19 @@ app.registerExtension({
                             </div>
                             <div style="margin-left: auto; display: flex; gap: 5px;">
                                 <button class="lmm-mask-editor-btn" title="Open Mask Editor for selected image">Mask Editor</button>
-                                <button class="lmm-batch-action-btn lmm-batch-select-all-btn" title="Select All Files in Current View">All</button>
                                 <button class="lmm-batch-action-btn lmm-batch-move-btn" title="Move Selected Files" disabled>➔ Move</button>
                                 <button class="lmm-batch-action-btn lmm-batch-delete-btn" title="Delete Selected Files" disabled>🗑️ Delete</button>
+                            </div>
+                        </div>
+                        <div class="lmm-controls" style="gap: 5px;">
+                            <label>Sort by:</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
+                            <label>Order:</label> <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
+                            <div style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
+                                <label>Images:</label> <input type="checkbox" class="lmm-show-images" checked>
+                                <label>Videos:</label> <input type="checkbox" class="lmm-show-videos">
+                                <label>Audio:</label> <input type="checkbox" class="lmm-show-audio">
+                                <button class="lmm-show-selected-btn" title="Show all selected items across folders">Show Selected</button>
+                                <button class="lmm-batch-action-btn lmm-batch-select-all-btn" title="Select All Files in Current View">Select All</button>
                             </div>
                         </div>
                         <div class="lmm-controls lmm-tag-editor">
@@ -767,6 +772,7 @@ app.registerExtension({
                 const showAudioCheckbox = controls.querySelector(".lmm-show-audio");
                 const tagFilterInput = controls.querySelector(".lmm-tag-filter-input");
                 const tagFilterModeBtn = controls.querySelector(".lmm-tag-filter-mode-btn");
+                const combineModeBtn = controls.querySelector(".lmm-combine-mode-btn");
                 const multiSelectTagContainer = controls.querySelector(".lmm-multiselect-tag");
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
@@ -1713,6 +1719,7 @@ app.registerExtension({
                     const currentSearchScopes = getSelectedScopes();
                     const isGlobalSearch = !!(currentSearchQuery) || (filterTag && !(currentSearchScopes.length === 1 && currentSearchScopes[0] === 'current'));
                     const filterMode = tagFilterModeBtn.textContent;
+                    const combineMode = combineModeBtn.textContent;
 
                     if (!directory && !isGlobalSearch && !currentSearchQuery) {
                         placeholder.textContent = "Enter folder path and click 'Refresh'.";
@@ -1738,7 +1745,7 @@ app.registerExtension({
                     } else if (filterTag && !(currentSearchScopes.length === 1 && currentSearchScopes[0] === 'current')) {
                         searchMode = 'global';
                     }
-                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${searchMode}&filter_mode=${filterMode}&force_refresh=${forceRefresh}&search_query=${encodeURIComponent(currentSearchQuery)}`;
+                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${searchMode}&filter_mode=${filterMode}&combine_mode=${combineMode}&force_refresh=${forceRefresh}&search_query=${encodeURIComponent(currentSearchQuery)}`;
                     currentSearchScopes.forEach(s => { url += `&search_scope=${encodeURIComponent(s)}`; });
 
                     if (selection.length > 0) {
@@ -1800,7 +1807,8 @@ app.registerExtension({
                                 if (currentSearchScopes.includes('saved')) scopeParts.push('all saved paths');
                                 scopeLabel = scopeParts.join(' and ');
                             }
-                            searchStatus.querySelector('span').textContent = `\uD83D\uDD0D Searching media with ${criteriaParts.join(' and ')} in ${scopeLabel}`;
+                            const criteriaJoiner = (hasQuery && hasTags && combineMode === 'OR') ? ' or ' : ' and ';
+                            searchStatus.querySelector('span').textContent = `\uD83D\uDD0D Searching media with ${criteriaParts.join(criteriaJoiner)} in ${scopeLabel}`;
                             searchStatus.style.display = 'block';
                         } else {
                             searchStatus.style.display = 'none';
@@ -2028,6 +2036,8 @@ app.registerExtension({
                         show_videos: showVideosCheckbox.checked,
                         show_audio: showAudioCheckbox.checked,
                         filter_tag: tagFilterInput.value,
+                        filter_mode: tagFilterModeBtn.textContent,
+                        combine_mode: combineModeBtn.textContent,
                         search_query: searchInput.dataset.savedValue || searchInput.value,
                         search_scopes: getSelectedScopes(),
                         show_selected_mode: showSelectedMode,
@@ -2221,6 +2231,17 @@ app.registerExtension({
                     saveStateAndReload(false);
                 });
 
+                combineModeBtn.addEventListener('click', () => {
+                    if (combineModeBtn.textContent === 'AND') {
+                        combineModeBtn.textContent = 'OR';
+                        combineModeBtn.style.backgroundColor = "#2563EB";
+                    } else {
+                        combineModeBtn.textContent = 'AND';
+                        combineModeBtn.style.backgroundColor = "#555";
+                    }
+                    saveStateAndReload(false);
+                });
+
                 const updateShowSelectedButtonUI = () => {
                     if (showSelectedMode) {
                         showSelectedButton.classList.add('active');
@@ -2408,6 +2429,15 @@ app.registerExtension({
                             savedScopes.forEach(s => activeScopes.add(s));
                             updateScopeDisplay();
                             showSelectedMode = state.show_selected_mode || false;
+
+                            if (state.filter_mode) {
+                                tagFilterModeBtn.textContent = state.filter_mode;
+                                tagFilterModeBtn.style.backgroundColor = state.filter_mode === 'AND' ? '#D97706' : '#555';
+                            }
+                            if (state.combine_mode) {
+                                combineModeBtn.textContent = state.combine_mode;
+                                combineModeBtn.style.backgroundColor = state.combine_mode === 'OR' ? '#2563EB' : '#555';
+                            }
 
                             selection = state.selection || [];
                             updateBatchActionButtonsState();
