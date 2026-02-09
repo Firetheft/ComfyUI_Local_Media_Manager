@@ -521,7 +521,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-breadcrumb-ellipsis { color: #888; padding: 0 4px; user-select: none; font-weight: bold; }
                         
                         #${uniqueId} .lmm-cardholder { position: relative; overflow-y: auto; overflow-x: hidden; background: #222; padding: 0; border-radius: 5px; flex-grow: 1; min-height: 0; height: 0; width: 100%; transition: opacity 0.2s ease-in-out; box-sizing: border-box; }
-                        #${uniqueId} .lmm-gallery-card { position: absolute; border: 3px solid transparent; border-radius: 8px; box-sizing: border-box; transition: all 0.3s ease; display: flex; flex-direction: column; background-color: var(--comfy-input-bg); }
+                        #${uniqueId} .lmm-gallery-card { position: absolute; border: 3px solid transparent; border-radius: 8px; box-sizing: border-box; transition: all 0.3s ease; display: flex; flex-direction: column; background-color: #333; }
                         #${uniqueId} .lmm-gallery-card.lmm-selected { border-color: #00FFC9; }
                         #${uniqueId} .lmm-gallery-card.lmm-edit-selected { border-color: #FFD700; box-shadow: 0 0 10px #FFD700; }
                         #${uniqueId} .lmm-selection-badge {
@@ -561,8 +561,8 @@ app.registerExtension({
                         #${uniqueId} .lmm-video-card-overlay { position: absolute; top: 5px; left: 5px; width: 24px; height: 24px; opacity: 0.8; pointer-events: none; }
                         
                         #${uniqueId} .lmm-card-info-panel { 
-                            flex-shrink: 0; background-color: var(--comfy-input-bg); 
-                            padding: 4px; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; 
+                            flex-shrink: 0; background-color: inherit;
+                            padding: 2px; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; 
                             min-height: 48px; position: relative;
                             display: flex; flex-direction: column; align-items: flex-start;
                             box-sizing: border-box;
@@ -590,9 +590,11 @@ app.registerExtension({
                             background-color: rgba(80,80,80,0.6);
                         }
                         
-                        #${uniqueId} .edit-tags-btn { position: absolute; bottom: 4px; right: 4px; width: 22px; height: 22px; background-color: rgba(0,0,0,0.5); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background-color 0.2s; opacity: 0; cursor: pointer; }
-                        #${uniqueId} .lmm-gallery-card:hover .edit-tags-btn { opacity: 1; }
-                        #${uniqueId} .edit-tags-btn:hover { background-color: rgba(0,0,0,0.8); }
+                        #${uniqueId} .edit-tags-btn, #${uniqueId} .open-media-btn { position: absolute; bottom: 2px; width: 22px; height: 22px; background-color: rgba(0,0,0,0.5); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background-color 0.2s; opacity: 0; cursor: pointer; }
+                        #${uniqueId} .open-media-btn { right: 2px; }
+                        #${uniqueId} .edit-tags-btn { right: 28px; }
+                        #${uniqueId} .lmm-gallery-card:hover .edit-tags-btn, #${uniqueId} .lmm-gallery-card:hover .open-media-btn { opacity: 1; }
+                        #${uniqueId} .edit-tags-btn:hover, #${uniqueId} .open-media-btn:hover { background-color: rgba(0,0,0,0.8); }
                         #${uniqueId} .lmm-star-rating { font-size: 16px; cursor: pointer; color: #555; }
                         #${uniqueId} .lmm-star-rating .lmm-star:hover { color: #FFD700 !important; }
                         #${uniqueId} .lmm-star-rating .lmm-star.lmm-rated { color: #FFC700; }
@@ -1241,7 +1243,7 @@ app.registerExtension({
                 const debounce = (func, delay) => { let timeoutId; return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func.apply(this, args), delay); }; };
 
                 const calculateFullLayout = () => {
-                    const minCardWidth = 150, gap = 5, containerWidth = cardholder.clientWidth;
+                    const minCardWidth = 150, gap = 3, containerWidth = cardholder.clientWidth;
                     if (containerWidth === 0 || allItems.length === 0) {
                         cardholder.style.height = '0px';
                         layoutData = [];
@@ -1274,7 +1276,8 @@ app.registerExtension({
                             aspectRatio = 1.0;
                         }
 
-                        let imagePartHeight = actualCardWidth / aspectRatio;
+                        const cardBorder = 6; // 3px border each side (box-sizing: border-box)
+                        let imagePartHeight = (actualCardWidth - cardBorder) / aspectRatio;
 
 
                         if (item.type === 'image' || item.type === 'video') {
@@ -1296,7 +1299,7 @@ app.registerExtension({
                             measuringDiv.innerHTML = infoPanelHTML;
 
                             const infoPanelHeight = measuringDiv.querySelector('.lmm-card-info-panel').offsetHeight + 2;
-                            var cardHeight = imagePartHeight + infoPanelHeight;
+                            var cardHeight = imagePartHeight + infoPanelHeight + cardBorder;
                         } else {
                             var cardHeight = 150;
                         }
@@ -1530,7 +1533,11 @@ app.registerExtension({
                     card.dataset.type = item.type;
                     card.dataset.tags = item.tags.join(',');
                     card.dataset.rating = item.rating;
-                    card.title = item.name;
+                    const dir = item.path.substring(0, item.path.length - item.name.length);
+                    const d = new Date(item.mtime * 1000);
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const mtimeStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                    card.title = `Name: ${item.name}\nPath: ${dir}\nType: ${item.type}\nLast Edited: ${mtimeStr}`;
 
                     let mediaHTML = "";
                     if (item.type === 'dir') {
@@ -1558,6 +1565,7 @@ app.registerExtension({
                                 ${workflowTextBadge}
                             </div>
                             <div class="lmm-tag-list">${tags}</div>
+                            <div class="open-media-btn">🔎</div>
                             <div class="edit-tags-btn">✏️</div>
                         `;
                         card.appendChild(infoPanel);
@@ -1619,6 +1627,14 @@ app.registerExtension({
                                 }
                             }
                             renderTagEditor();
+                        });
+
+                        const openBtn = infoPanel.querySelector(".open-media-btn");
+                        openBtn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            const currentMediaList = allItems.filter(i => ['image', 'video', 'audio'].includes(i.type));
+                            const idx = currentMediaList.findIndex(i => i.path === item.path);
+                            if (idx !== -1) showMediaAtIndex(idx, currentMediaList);
                         });
 
                         const starRating = infoPanel.querySelector('.lmm-star-rating');
