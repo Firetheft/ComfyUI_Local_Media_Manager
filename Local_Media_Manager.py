@@ -901,18 +901,78 @@ async def get_all_tags(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+_IMAGE_EXTS = set(SUPPORTED_IMAGE_EXTENSIONS)
+_VIDEO_EXTS = set(SUPPORTED_VIDEO_EXTENSIONS)
+_AUDIO_EXTS = set(SUPPORTED_AUDIO_EXTENSIONS)
+
+def _ext_to_type(ext):
+    """Map a lowercase extension to 'image', 'video', 'audio', or None."""
+    if ext in _IMAGE_EXTS:
+        return 'image'
+    if ext in _VIDEO_EXTS:
+        return 'video'
+    if ext in _AUDIO_EXTS:
+        return 'audio'
+    return None
+
+def _video_has_workflow(filepath):
+    """Check if a video file has embedded workflow data in the first 4MB."""
+    try:
+        with open(filepath, 'rb') as f:
+            chunk = f.read(4 * 1024 * 1024)
+            return b'"workflow":' in chunk or b'"prompt":' in chunk
+    except Exception:
+        return False
+
+_workflow_cache = {}
+
+def _check_has_workflow(filepath, mtime, item_type):
+    """Cached workflow check for images and videos. Returns bool or None for audio/dirs."""
+    if item_type == 'image':
+        key = (filepath, mtime)
+        cached = _workflow_cache.get(key)
+        if cached is not None:
+            return cached
+        has_wf = False
+        try:
+            with Image.open(filepath) as img:
+                if img.info and ('workflow' in img.info or 'prompt' in img.info):
+                    has_wf = True
+        except Exception:
+            pass
+        _workflow_cache[key] = has_wf
+        return has_wf
+    if item_type == 'video':
+        key = (filepath, mtime)
+        cached = _workflow_cache.get(key)
+        if cached is not None:
+            return cached
+        has_wf = _video_has_workflow(filepath)
+        _workflow_cache[key] = has_wf
+        return has_wf
+    return None
+
+def _build_item(full_path, fname, stats, item_type, meta=None, metadata_store=None):
+    """Build a media item dict. Provide either meta= directly or metadata_store= to look up by path."""
+    if meta is None:
+        meta = (metadata_store or {}).get(full_path, {})
+    item = {
+        'path': full_path,
+        'name': fname,
+        'mtime': stats.st_mtime,
+        'rating': meta.get('rating', 0),
+        'tags': meta.get('tags', []),
+        'type': item_type,
+    }
+    has_wf = _check_has_workflow(full_path, stats.st_mtime, item_type)
+    if has_wf is not None:
+        item['has_workflow'] = has_wf
+    return item
+
 def _scan_directory(directory):
     """Pure computation: scan a single directory for media files. No caching."""
     if not directory or not os.path.isdir(directory):
         return None
-
-    def video_has_workflow(filepath):
-        try:
-            with open(filepath, 'rb') as f:
-                chunk = f.read(4 * 1024 * 1024)
-                return b'"workflow":' in chunk or b'"prompt":' in chunk
-        except Exception:
-            return False
 
     all_items = []
     metadata = load_metadata()
@@ -922,32 +982,13 @@ def _scan_directory(directory):
         full_path = raw_full_path.replace("\\", "/")
         try:
             stats = os.stat(raw_full_path)
-            item_meta = metadata.get(full_path, {})
-            item_data = {
-                'path': full_path,
-                'name': item,
-                'mtime': stats.st_mtime,
-                'rating': item_meta.get('rating', 0),
-                'tags': item_meta.get('tags', [])
-            }
             if os.path.isdir(full_path):
-                all_items.append({**item_data, 'type': 'dir'})
+                all_items.append(_build_item(full_path, item, stats, 'dir', metadata_store=metadata))
             else:
                 ext = os.path.splitext(item)[1].lower()
-                if ext in SUPPORTED_IMAGE_EXTENSIONS:
-                    has_workflow = False
-                    try:
-                        with Image.open(full_path) as img:
-                            if img.info and ('workflow' in img.info or 'prompt' in img.info):
-                                has_workflow = True
-                    except:
-                        pass
-                    all_items.append({**item_data, 'type': 'image', 'has_workflow': has_workflow})
-                elif ext in SUPPORTED_VIDEO_EXTENSIONS:
-                    has_workflow = video_has_workflow(full_path)
-                    all_items.append({**item_data, 'type': 'video', 'has_workflow': has_workflow})
-                elif ext in SUPPORTED_AUDIO_EXTENSIONS:
-                    all_items.append({**item_data, 'type': 'audio'})
+                item_type = _ext_to_type(ext)
+                if item_type:
+                    all_items.append(_build_item(full_path, item, stats, item_type, metadata_store=metadata))
         except (PermissionError, FileNotFoundError):
             continue
 
@@ -1025,15 +1066,7 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
                 visited.add(real_dir_path)
                 try:
                     stats = os.stat(dir_full_path)
-                    item_meta = metadata.get(dir_full_path, {})
-                    all_items.append({
-                        'path': dir_full_path,
-                        'name': dname,
-                        'mtime': stats.st_mtime,
-                        'rating': item_meta.get('rating', 0),
-                        'tags': item_meta.get('tags', []),
-                        'type': 'dir'
-                    })
+                    all_items.append(_build_item(dir_full_path, dname, stats, 'dir', metadata_store=metadata))
                 except (PermissionError, FileNotFoundError):
                     continue
 
@@ -1053,22 +1086,11 @@ def _search_walk(roots, query_lower, metadata, all_extensions, visited, match_fn
                 visited.add(real_path)
                 try:
                     stats = os.stat(raw_full_path)
-                    item_meta = metadata.get(full_path, {})
-                    item_data = {
-                        'path': full_path,
-                        'name': fname,
-                        'mtime': stats.st_mtime,
-                        'rating': item_meta.get('rating', 0),
-                        'tags': item_meta.get('tags', [])
-                    }
-                    if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                    item_type = _ext_to_type(ext)
+                    if item_type:
                         if len(all_items) < 5:
                             logger.warning(f"[LMM SEARCH DEBUG] ADD file [{len(all_items)}]: {full_path} (realpath: {real_path})")
-                        all_items.append({**item_data, 'type': 'image', 'has_workflow': False})
-                    elif ext in SUPPORTED_VIDEO_EXTENSIONS:
-                        all_items.append({**item_data, 'type': 'video', 'has_workflow': False})
-                    elif ext in SUPPORTED_AUDIO_EXTENSIONS:
-                        all_items.append({**item_data, 'type': 'audio'})
+                        all_items.append(_build_item(full_path, fname, stats, item_type, metadata_store=metadata))
                 except (PermissionError, FileNotFoundError):
                     continue
     return all_items
@@ -1211,21 +1233,8 @@ async def get_local_images(request):
                         if item_type:
                             try:
                                 stats = os.stat(path)
-                                item_info = {
-                                    'path': path, 'name': os.path.basename(path), 'type': item_type,
-                                    'mtime': stats.st_mtime, 'rating': meta.get('rating', 0), 'tags': meta.get('tags', [])
-                                }
-                                if item_type == 'image':
-                                    has_workflow = False
-                                    try:
-                                        with Image.open(path) as img:
-                                            if img.info and ('workflow' in img.info or 'prompt' in img.info):
-                                                has_workflow = True
-                                    except:
-                                        pass
-                                    item_info['has_workflow'] = has_workflow
-                                all_items_with_meta.append(item_info)
-                            except: continue
+                                all_items_with_meta.append(_build_item(path, os.path.basename(path), stats, item_type, meta=meta))
+                            except Exception: continue
 
         elif search_mode == 'local':
             directory_items = await get_directory_data(directory, force_refresh)
@@ -1326,26 +1335,8 @@ async def get_selected_items(request):
             if path and os.path.exists(path):
                 try:
                     stats = os.stat(path)
-                    item_meta = metadata.get(path, {})
-
-                    item_info = {
-                        'path': path,
-                        'name': os.path.basename(path),
-                        'type': item_data.get("type"),
-                        'mtime': stats.st_mtime,
-                        'rating': item_meta.get('rating', 0),
-                        'tags': item_meta.get('tags', [])
-                    }
-                    if item_data.get("type") == 'image':
-                        has_workflow = False
-                        try:
-                            with Image.open(path) as img:
-                                if img.info and ('workflow' in img.info or 'prompt' in img.info):
-                                    has_workflow = True
-                        except:
-                            pass
-                        item_info['has_workflow'] = has_workflow
-                    all_items_with_meta.append(item_info)
+                    item_type = item_data.get("type")
+                    all_items_with_meta.append(_build_item(path, os.path.basename(path), stats, item_type, metadata_store=metadata))
                 except (PermissionError, FileNotFoundError):
                     continue
 
