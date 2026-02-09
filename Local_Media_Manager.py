@@ -955,7 +955,18 @@ def _check_has_workflow(filepath, mtime, item_type):
 def _build_item(full_path, fname, stats, item_type, meta=None, metadata_store=None):
     """Build a media item dict. Provide either meta= directly or metadata_store= to look up by path."""
     if meta is None:
-        meta = (metadata_store or {}).get(full_path, {})
+        if metadata_store:
+            meta = metadata_store.get(full_path, None)
+            if meta is None:
+                # Absolute paths from search won't match relative keys in metadata.
+                comfy_dir = os.path.dirname(os.path.dirname(NODE_DIR))
+                comfy_prefix = comfy_dir.rstrip("/") + "/"
+                if full_path.startswith(comfy_prefix):
+                    meta = metadata_store.get(full_path[len(comfy_prefix):], None)
+            if meta is None:
+                meta = {}
+        else:
+            meta = {}
     item = {
         'path': full_path,
         'name': fname,
