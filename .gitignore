@@ -1,0 +1,12 @@
+# Runtime data
+config.json
+metadata.json
+lig_ui_state.json
+.cache/
+__pycache__/
+
+# ComfyUI Manager
+.tracking
+
+# IDE
+.history/

@@ -1,6 +1,30 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
+const _lmmCache = {
+    tags: { promise: null, ts: 0 },
+    paths: { promise: null, ts: 0 },
+    TTL: 2000
+};
+
+function fetchTagsCached() {
+    const now = Date.now();
+    if (_lmmCache.tags.promise && (now - _lmmCache.tags.ts) < _lmmCache.TTL)
+        return _lmmCache.tags.promise;
+    _lmmCache.tags.ts = now;
+    _lmmCache.tags.promise = api.fetchApi("/local_image_gallery/get_all_tags").then(r => r.json());
+    return _lmmCache.tags.promise;
+}
+
+function fetchPathsCached() {
+    const now = Date.now();
+    if (_lmmCache.paths.promise && (now - _lmmCache.paths.ts) < _lmmCache.TTL)
+        return _lmmCache.paths.promise;
+    _lmmCache.paths.ts = now;
+    _lmmCache.paths.promise = api.fetchApi("/local_image_gallery/get_saved_paths").then(r => r.json());
+    return _lmmCache.paths.promise;
+}
+
 const githubPath = new Path2D("M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 24 5.67 18.627.297 12 .297z");
 
 function addGitHubIcon(nodeType, url) {
@@ -16,41 +40,41 @@ function addGitHubIcon(nodeType, url) {
         const y = (LiteGraph.NODE_TITLE_HEIGHT - iconSize) / 2 - LiteGraph.NODE_TITLE_HEIGHT;
 
         this.githubIconRect = [x, y, iconSize, iconSize];
-        
+
         ctx.save();
         ctx.translate(x, y);
         ctx.scale(iconSize / 24, iconSize / 24);
-        
+
         ctx.fillStyle = this.mouseOver && this.mouseOver_github_icon ? "#FFFFFF" : "#888888";
-        
+
         ctx.fill(githubPath);
         ctx.restore();
     };
 
     const onMouseDown = nodeType.prototype.onMouseDown;
-    nodeType.prototype.onMouseDown = function(e, pos, graphcanvas) {
+    nodeType.prototype.onMouseDown = function (e, pos, graphcanvas) {
         if (this.flags.collapsed) {
-             return onMouseDown?.apply(this, arguments);
+            return onMouseDown?.apply(this, arguments);
         }
         if (this.githubIconRect && pos[1] < LiteGraph.NODE_TITLE_HEIGHT) {
             const [x, y, w, h] = this.githubIconRect;
             if (pos[0] > x && pos[0] < x + w && pos[1] > y && pos[1] < y + h) {
                 window.open(url, '_blank');
-                return true; 
+                return true;
             }
         }
         return onMouseDown?.apply(this, arguments);
     };
 
     const onMouseMove = nodeType.prototype.onMouseMove;
-    nodeType.prototype.onMouseMove = function(e, pos, graphcanvas) {
+    nodeType.prototype.onMouseMove = function (e, pos, graphcanvas) {
         if (this.flags.collapsed) {
             return onMouseMove?.apply(this, arguments);
         }
         if (this.githubIconRect && pos[1] < LiteGraph.NODE_TITLE_HEIGHT) {
             const [x, y, w, h] = this.githubIconRect;
             const isOver = (pos[0] > x && pos[0] < x + w && pos[1] > y && pos[1] < y + h);
-            if(this.mouseOver_github_icon !== isOver) {
+            if (this.mouseOver_github_icon !== isOver) {
                 this.mouseOver_github_icon = isOver;
                 this.setDirtyCanvas(true, false);
             }
@@ -63,8 +87,8 @@ function addGitHubIcon(nodeType, url) {
     };
 
     const onMouseLeave = nodeType.prototype.onMouseLeave;
-    nodeType.prototype.onMouseLeave = function(e) {
-        if(this.mouseOver_github_icon) {
+    nodeType.prototype.onMouseLeave = function (e) {
+        if (this.mouseOver_github_icon) {
             this.mouseOver_github_icon = false;
             this.setDirtyCanvas(true, false);
         }
@@ -138,6 +162,8 @@ function setupGlobalMaskEditor() {
         .lmm-mask-editor-actions { margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px; }
         .lmm-mask-editor-btn-primary { background: #236694; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; }
         .lmm-mask-editor-btn-secondary { background: #444; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; }
+        .lmm-mask-editor-btn-danger { background: #8B2020; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; display: none; }
+        .lmm-mask-editor-btn-danger:hover { background: #B22222; }
         .lmm-brush-cursor {
             position: absolute; border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.8); border-radius: 50%; pointer-events: none; z-index: 10003; transform: translate(-50%, -50%); display: none;
         }
@@ -177,6 +203,7 @@ function setupGlobalMaskEditor() {
                 
                 <div class="lmm-mask-editor-actions" style="flex-shrink:0;">
                     <div id="lmm-mask-info" style="position: absolute; bottom: 14px; left: 10px; color: #eee; background: rgba(0, 0, 0, 0.6); padding: 4px 8px; border-radius: 4px; font-size: 14px; pointer-events: none; user-select: none; z-index: 10002; font-family: monospace;">0 x 0 | 100%</div>
+                    <button id="lmm-mask-delete" class="lmm-mask-editor-btn-danger">Delete Mask</button>
                     <button id="lmm-mask-cancel" class="lmm-mask-editor-btn-secondary">Cancel</button>
                     <button id="lmm-mask-save" class="lmm-mask-editor-btn-primary">Save Mask</button>
                 </div>
@@ -192,7 +219,7 @@ function setupGlobalMaskEditor() {
     const maskCanvas = document.getElementById("lmm-mask-canvas");
     const maskCtx = maskCanvas.getContext("2d");
     const brushCursor = document.getElementById("lmm-brush-cursor");
-    
+
     let editorState = { zoom: 1, panX: 0, panY: 0, isPanning: false, panStartX: 0, panStartY: 0 };
     let isDrawingMask = false;
     let currentImagePath = "";
@@ -201,9 +228,9 @@ function setupGlobalMaskEditor() {
         content.style.transform = `translate(${editorState.panX}px, ${editorState.panY}px) scale(${editorState.zoom})`;
     };
     const updateCursor = (e) => {
-        if (!e || editorState.isPanning) { 
-            viewport.style.cursor = editorState.isPanning ? "grabbing" : "default"; 
-            brushCursor.style.display = "none"; return; 
+        if (!e || editorState.isPanning) {
+            viewport.style.cursor = editorState.isPanning ? "grabbing" : "default";
+            brushCursor.style.display = "none"; return;
         }
         const rect = viewport.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -223,31 +250,31 @@ function setupGlobalMaskEditor() {
         if (!isDrawingMask) return;
         e.preventDefault();
         const pos = getMousePos(e);
-        
+
         const size = document.getElementById("lmm-mask-brush-size").value;
         const blur = document.getElementById("lmm-mask-brush-blur").value;
 
         maskCtx.lineWidth = size;
-        maskCtx.lineCap = "round"; 
+        maskCtx.lineCap = "round";
         maskCtx.lineJoin = "round";
 
-        maskCtx.shadowBlur = blur; 
-        maskCtx.shadowColor = "white"; 
+        maskCtx.shadowBlur = blur;
+        maskCtx.shadowColor = "white";
 
         maskCtx.globalCompositeOperation = e.shiftKey ? "destination-out" : "source-over";
-        maskCtx.strokeStyle = "white"; 
+        maskCtx.strokeStyle = "white";
         maskCtx.fillStyle = "white";
-        
-        maskCtx.lineTo(pos.x, pos.y); 
+
+        maskCtx.lineTo(pos.x, pos.y);
         maskCtx.stroke();
-        
-        maskCtx.beginPath(); 
-        maskCtx.arc(pos.x, pos.y, maskCtx.lineWidth / 2, 0, Math.PI * 2); 
+
+        maskCtx.beginPath();
+        maskCtx.arc(pos.x, pos.y, maskCtx.lineWidth / 2, 0, Math.PI * 2);
         maskCtx.fill();
-        
-        maskCtx.beginPath(); 
+
+        maskCtx.beginPath();
         maskCtx.moveTo(pos.x, pos.y);
-        
+
         maskCtx.shadowBlur = 0;
     };
 
@@ -261,7 +288,7 @@ function setupGlobalMaskEditor() {
         editorState.zoom = newZoom;
         editorState.panX = (e.clientX - rect.left) - mouseXWorld * editorState.zoom;
         editorState.panY = (e.clientY - rect.top) - mouseYWorld * editorState.zoom;
-        updateTransform(); updateCursor(e); 
+        updateTransform(); updateCursor(e);
         document.getElementById("lmm-mask-info").textContent = `${maskCanvas.width} x ${maskCanvas.height} | ${Math.round(editorState.zoom * 100)}%`;
     });
     viewport.addEventListener("mousedown", (e) => {
@@ -278,32 +305,45 @@ function setupGlobalMaskEditor() {
     });
     window.addEventListener("mouseup", (e) => { editorState.isPanning = false; isDrawingMask = false; maskCtx.beginPath(); updateCursor(e); });
     viewport.addEventListener("contextmenu", (e) => e.preventDefault());
-    document.getElementById("lmm-mask-brush-size").addEventListener("input", (e) => updateCursor({clientX: -1000, clientY: -1000}));
-    
+    document.getElementById("lmm-mask-brush-size").addEventListener("input", (e) => updateCursor({ clientX: -1000, clientY: -1000 }));
+
     document.getElementById("lmm-mask-cancel").onclick = () => { overlay.style.display = "none"; };
-    
+
     document.getElementById("lmm-mask-save").onclick = async () => {
         const dataUrl = maskCanvas.toDataURL("image/png");
         const btn = document.getElementById("lmm-mask-save"); btn.textContent = "Saving..."; btn.disabled = true;
         try {
             await api.fetchApi("/local_image_gallery/save_mask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_path: currentImagePath, mask_data: dataUrl }) });
-            if(lmm_mask_on_save_callback) lmm_mask_on_save_callback();
+            if (lmm_mask_on_save_callback) lmm_mask_on_save_callback();
             overlay.style.display = "none";
-        } catch(e) { alert("Failed: " + e); } finally { btn.textContent = "Save Mask"; btn.disabled = false; }
+        } catch (e) { alert("Failed: " + e); } finally { btn.textContent = "Save Mask"; btn.disabled = false; }
     };
-    
+
+    const deleteBtn = document.getElementById("lmm-mask-delete");
+    deleteBtn.onclick = async () => {
+        if (!confirm("Permanently delete this mask sidecar file?")) return;
+        deleteBtn.textContent = "Deleting..."; deleteBtn.disabled = true;
+        try {
+            await api.fetchApi("/local_image_gallery/delete_mask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_path: currentImagePath }) });
+            maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+            deleteBtn.style.display = "none";
+            if (lmm_mask_on_save_callback) lmm_mask_on_save_callback();
+            overlay.style.display = "none";
+        } catch (e) { alert("Failed to delete mask: " + e); } finally { deleteBtn.textContent = "Delete Mask"; deleteBtn.disabled = false; }
+    };
+
     document.getElementById("lmm-mask-clear").onclick = async () => {
-         maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     };
-    
+
     document.getElementById("lmm-mask-invert").onclick = () => {
         const imgData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
         const d = imgData.data;
         for (let i = 0; i < d.length; i += 4) {
-            d[i+3] = 255 - d[i+3];
+            d[i + 3] = 255 - d[i + 3];
             d[i] = 255;
-            d[i+1] = 255;
-            d[i+2] = 255;
+            d[i + 1] = 255;
+            d[i + 2] = 255;
         }
         maskCtx.putImageData(imgData, 0, 0);
     };
@@ -328,13 +368,13 @@ function setupGlobalMaskEditor() {
     };
 
     displaySelect.addEventListener("change", updateMaskVisuals);
-    
+
     updateMaskVisuals();
 
     window.lmmOpenMaskEditor = async (path, onSaveCallback) => {
         currentImagePath = path;
         lmm_mask_on_save_callback = onSaveCallback;
-        
+
         const timestamp = new Date().getTime();
         const img = new Image();
         img.onload = async () => {
@@ -351,26 +391,27 @@ function setupGlobalMaskEditor() {
             document.getElementById("lmm-mask-info").textContent = `${img.width} x ${img.height} | ${Math.round(editorState.zoom * 100)}%`;
 
             try {
-                const res = await api.fetchApi("/local_image_gallery/get_mask_path", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ image_path: path }) });
+                const res = await api.fetchApi("/local_image_gallery/get_mask_path", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_path: path }) });
                 const data = await res.json();
 
                 maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
 
+                deleteBtn.style.display = (data.status === 'ok' && data.mask_path) ? 'inline-block' : 'none';
                 if (data.status === 'ok' && data.mask_path) {
                     const mImg = new Image();
                     mImg.onload = () => {
                         maskCtx.drawImage(mImg, 0, 0);
-                        
-                        const iD = maskCtx.getImageData(0,0,maskCanvas.width, maskCanvas.height);
-                        for(let i=0; i<iD.data.length; i+=4) { 
+
+                        const iD = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+                        for (let i = 0; i < iD.data.length; i += 4) {
                             const currentRed = iD.data[i];
-                            const currentAlpha = iD.data[i+3];
+                            const currentAlpha = iD.data[i + 3];
                             const finalAlpha = currentAlpha < 255 ? currentAlpha : currentRed;
 
                             iD.data[i] = 255;
-                            iD.data[i+1] = 255;
-                            iD.data[i+2] = 255;
-                            iD.data[i+3] = finalAlpha;
+                            iD.data[i + 1] = 255;
+                            iD.data[i + 2] = 255;
+                            iD.data[i + 3] = finalAlpha;
                         }
                         maskCtx.putImageData(iD, 0, 0);
                     };
@@ -381,7 +422,7 @@ function setupGlobalMaskEditor() {
                     tempCanvas.height = img.height;
                     const tempCtx = tempCanvas.getContext('2d');
                     tempCtx.drawImage(img, 0, 0);
-                    
+
                     const originalData = tempCtx.getImageData(0, 0, img.width, img.height).data;
                     const maskImageData = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
                     const maskPixels = maskImageData.data;
@@ -420,55 +461,55 @@ app.registerExtension({
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated?.apply(this, arguments);
-                
+
                 if (!this.properties || !this.properties.gallery_unique_id) {
                     if (!this.properties) { this.properties = {}; }
                     this.properties.gallery_unique_id = "gallery-" + Math.random().toString(36).substring(2, 11);
                 }
-                
+
                 const node_instance = this;
-                
+
                 const galleryIdWidget = this.addWidget(
                     "hidden_text",
                     "gallery_unique_id_widget",
                     this.properties.gallery_unique_id,
-                    () => {},
+                    () => { },
                     {}
                 );
                 galleryIdWidget.serializeValue = () => {
                     return node_instance.properties.gallery_unique_id;
                 };
-                galleryIdWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-                galleryIdWidget.computeSize = function(width) {
+                galleryIdWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+                galleryIdWidget.computeSize = function (width) {
                     return [0, 0];
                 };
-                
+
                 const selectionWidget = this.addWidget(
                     "hidden_text",
                     "selection",
                     this.properties.selection || "[]",
-                    () => {},
+                    () => { },
                     { multiline: true }
                 );
                 selectionWidget.serializeValue = () => {
                     return node_instance.properties["selection"] || "[]";
                 };
-                selectionWidget.draw = function(ctx, node, widget_width, y, widget_height) {};
-                selectionWidget.computeSize = function(width) { return [0, 0]; };
-                
+                selectionWidget.draw = function (ctx, node, widget_width, y, widget_height) { };
+                selectionWidget.computeSize = function (width) { return [0, 0]; };
+
                 const galleryContainer = document.createElement("div");
                 const uniqueId = `lmm-gallery-${Math.random().toString(36).substring(2, 9)}`;
                 galleryContainer.id = uniqueId;
 
                 galleryContainer.dataset.captureWheel = "true";
                 galleryContainer.addEventListener("wheel", (e) => {
-                     e.stopPropagation();
+                    e.stopPropagation();
                 });
-                
+
                 const folderSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M928 320H488L416 232c-15.1-18.9-38.3-29.9-63.1-29.9H128c-35.3 0-64 28.7-64 64v512c0 35.3 28.7 64 64 64h800c35.3 0 64-28.7 64-64V384c0-35.3-28.7-64-64-64z" fill="#F4D03F"></path></svg>`;
                 const videoSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M895.9 203.4H128.1c-35.3 0-64 28.7-64 64v489.2c0 35.3 28.7 64 64 64h767.8c35.3 0 64-28.7 64-64V267.4c0-35.3-28.7-64-64-64zM384 691.2V332.8L668.1 512 384 691.2z" fill="#FFD700"></path></svg>`;
                 const audioSVG = `<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><path d="M768 256H256c-35.3 0-64 28.7-64 64v384c0 35.3 28.7 64 64 64h512c35.3 0 64-28.7 64-64V320c0-35.3-28.7-64-64-64zM512 665.6c-84.8 0-153.6-68.8-153.6-153.6S427.2 358.4 512 358.4s153.6 68.8 153.6 153.6-68.8 153.6-153.6 153.6z" fill="#A9DFBF"></path><path d="M512 409.6c-56.5 0-102.4 45.9-102.4 102.4s45.9 102.4 102.4 102.4 102.4-45.9 102.4-102.4-45.9-102.4-102.4-102.4z" fill="#A9DFBF"></path></svg>`;
-                
+
                 galleryContainer.innerHTML = `
                     <style>
                         #${uniqueId} .lmm-container-wrapper { width: 100%; font-family: sans-serif; color: var(--node-text-color); box-sizing: border-box; display: flex; flex-direction: column; height: 100%; }
@@ -497,7 +538,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-breadcrumb-ellipsis { color: #888; padding: 0 4px; user-select: none; font-weight: bold; }
                         
                         #${uniqueId} .lmm-cardholder { position: relative; overflow-y: auto; overflow-x: hidden; background: #222; padding: 0; border-radius: 5px; flex-grow: 1; min-height: 0; height: 0; width: 100%; transition: opacity 0.2s ease-in-out; box-sizing: border-box; }
-                        #${uniqueId} .lmm-gallery-card { position: absolute; border: 3px solid transparent; border-radius: 8px; box-sizing: border-box; transition: all 0.3s ease; display: flex; flex-direction: column; background-color: var(--comfy-input-bg); }
+                        #${uniqueId} .lmm-gallery-card { position: absolute; border: 3px solid transparent; border-radius: 8px; box-sizing: border-box; transition: all 0.3s ease; display: flex; flex-direction: column; background-color: #333; }
                         #${uniqueId} .lmm-gallery-card.lmm-selected { border-color: #00FFC9; }
                         #${uniqueId} .lmm-gallery-card.lmm-edit-selected { border-color: #FFD700; box-shadow: 0 0 10px #FFD700; }
                         #${uniqueId} .lmm-selection-badge {
@@ -537,8 +578,8 @@ app.registerExtension({
                         #${uniqueId} .lmm-video-card-overlay { position: absolute; top: 5px; left: 5px; width: 24px; height: 24px; opacity: 0.8; pointer-events: none; }
                         
                         #${uniqueId} .lmm-card-info-panel { 
-                            flex-shrink: 0; background-color: var(--comfy-input-bg); 
-                            padding: 4px; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; 
+                            flex-shrink: 0; background-color: inherit;
+                            padding: 2px; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; 
                             min-height: 48px; position: relative;
                             display: flex; flex-direction: column; align-items: flex-start;
                             box-sizing: border-box;
@@ -548,6 +589,7 @@ app.registerExtension({
                             display: flex;
                             justify-content: space-between;
                             align-items: center;
+                            gap: 4px;
                             width: 100%;
                             margin-bottom: 4px;
                         }
@@ -565,10 +607,47 @@ app.registerExtension({
                         #${uniqueId} .lmm-workflow-text-badge:hover {
                             background-color: rgba(80,80,80,0.6);
                         }
-                        
-                        #${uniqueId} .edit-tags-btn { position: absolute; bottom: 4px; right: 4px; width: 22px; height: 22px; background-color: rgba(0,0,0,0.5); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background-color 0.2s; opacity: 0; cursor: pointer; }
-                        #${uniqueId} .lmm-gallery-card:hover .edit-tags-btn { opacity: 1; }
-                        #${uniqueId} .edit-tags-btn:hover { background-color: rgba(0,0,0,0.8); }
+                        #${uniqueId} .lmm-mask-badge {
+                            font-size: 10px;
+                            font-weight: bold;
+                            color: #B0E0FF;
+                            background-color: rgba(0,0,0,0.4);
+                            padding: 2px 5px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            transition: background-color 0.2s;
+                        }
+                        #${uniqueId} .lmm-mask-badge:hover {
+                            background-color: rgba(80,80,80,0.6);
+                        }
+                        #${uniqueId} img.lmm-mask-overlay {
+                            position: absolute;
+                            top: 0; left: 0; width: 100%; height: 100%;
+                            opacity: 0;
+                            transition: opacity 0.2s;
+                            pointer-events: none;
+                            object-fit: cover;
+                            border-radius: 0;
+                        }
+                        #${uniqueId} .lmm-card-media-wrapper:hover .lmm-mask-overlay.loaded {
+                            opacity: 0.75;
+                        }
+                        #${uniqueId} .lmm-mask-filter-toggle {
+                            cursor: pointer;
+                            user-select: none;
+                            font-size: 14px;
+                            line-height: 1;
+                            transition: opacity 0.15s;
+                        }
+                        #${uniqueId} .lmm-mask-filter-toggle.inactive { opacity: 0.2; }
+                        #${uniqueId} .lmm-mask-filter-toggle.no-mask {
+                            filter: drop-shadow(0 0 4px #ff4444) drop-shadow(0 0 8px #ff2222);
+                        }
+
+                        #${uniqueId} .lmm-card-actions { display: flex; align-items: center; gap: 4px; width: 100%; }
+                        #${uniqueId} .lmm-card-actions-right { display: flex; gap: 2px; margin-left: auto; }
+                        #${uniqueId} .edit-tags-btn, #${uniqueId} .open-media-btn, #${uniqueId} .copy-path-btn { width: 22px; height: 22px; background-color: rgba(0,0,0,0.3); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background-color 0.2s; cursor: pointer; }
+                        #${uniqueId} .edit-tags-btn:hover, #${uniqueId} .open-media-btn:hover, #${uniqueId} .copy-path-btn:hover { background-color: rgba(0,0,0,0.8); }
                         #${uniqueId} .lmm-star-rating { font-size: 16px; cursor: pointer; color: #555; }
                         #${uniqueId} .lmm-star-rating .lmm-star:hover { color: #FFD700 !important; }
                         #${uniqueId} .lmm-star-rating .lmm-star.lmm-rated { color: #FFC700; }
@@ -583,8 +662,10 @@ app.registerExtension({
                         #${uniqueId} .lmm-tag-editor-list { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
                         #${uniqueId} .lmm-tag-editor-list .lmm-tag .lmm-remove-tag { margin-left: 4px; color: #fdd; cursor: pointer; font-weight: bold; }
                         #${uniqueId} .lmm-show-selected-btn.active { background-color: #4A90E2; color: white; border-color: #4A90E2; }
+                        #${uniqueId} .lmm-recursive-btn { transition: opacity 0.15s; }
+                        #${uniqueId} .lmm-recursive-btn.inactive { opacity: 0.2; }
                         #${uniqueId} .lmm-tag-filter-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
-                        #${uniqueId} .lmm-tag-filter-wrapper input { flex-grow: 1; }
+                        #${uniqueId} .lmm-tag-filter-wrapper input { flex-grow: 1; transition: box-shadow 0.2s; }
                         #${uniqueId} .lmm-multiselect-tag { position: relative; flex-grow: 1; }
                         #${uniqueId} .lmm-multiselect-tag-display {
                             background-color: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 10px;
@@ -610,13 +691,29 @@ app.registerExtension({
                             display: block; padding: 0px 0px; cursor: pointer; font-size: 12px; color: #ccc;
                         }
                         #${uniqueId} .lmm-multiselect-tag-dropdown label:hover { background-color: #444; }
+                        #${uniqueId} .lmm-multiselect-rating { position: relative; }
+                        #${uniqueId} .lmm-multiselect-rating-display {
+                            background-color: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px 20px 4px 4px; font-size: 10px;
+                            height: 23px; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;
+                        }
+                        #${uniqueId} .lmm-multiselect-rating-dropdown {
+                            display: none; position: absolute; top: 100%; left: 0; min-width: 100%; background-color: #222;
+                            border: 1px solid #555; border-top: none; max-height: 200px; overflow-y: auto; z-index: 10;
+                        }
+                        #${uniqueId} .lmm-multiselect-rating-dropdown label {
+                            display: block; padding: 0px 2px; cursor: pointer; font-size: 12px; color: #ccc; white-space: nowrap;
+                        }
+                        #${uniqueId} .lmm-multiselect-rating-dropdown label:hover { background-color: #444; }
                         #${uniqueId} .lmm-tag-filter-mode-btn {
                             padding: 4px 8px; background-color: #555; color: #fff; border: 1px solid #666;
                             border-radius: 4px; cursor: pointer; flex-shrink: 0;
                         }
+                        #${uniqueId} .lmm-combine-mode-btn {
+                            padding: 4px 8px; background-color: #555; color: #fff; border: 1px solid #666;
+                            border-radius: 4px; cursor: pointer; flex-shrink: 0;
+                        }
                         #${uniqueId} .lmm-clear-tag-filter-button {
-                            background: none;
-                            display: none;
+                            background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px;
                         }
                         #${uniqueId} .lmm-tag-filter-wrapper input:not(:placeholder-shown) + .lmm-clear-tag-filter-button {
                             display: block;
@@ -633,6 +730,25 @@ app.registerExtension({
 
                         #${uniqueId} .lmm-mask-editor-btn { background-color: #2a2a2a; border: 1px solid #555; color: #eee; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
                         #${uniqueId} .lmm-mask-editor-btn:hover { background-color: #444; }
+                        #${uniqueId} .lmm-search-wrapper { display: flex; flex-grow: 1; position: relative; align-items: center; }
+                        #${uniqueId} .lmm-search-wrapper input { flex-grow: 1; transition: box-shadow 0.2s; }
+                        #${uniqueId} .lmm-search-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
+                        #${uniqueId} .lmm-search-input:disabled { opacity: 0.4; cursor: not-allowed; }
+                        #${uniqueId} .lmm-tag-filter-input:not(:placeholder-shown) { box-shadow: 0 0 6px 1px rgba(59, 130, 246, 0.5); }
+                        #${uniqueId} .lmm-clear-search-button { background: none; display: none; position: absolute; right: 0px; border: none; color: #aaa; cursor: pointer; font-size: 14px; padding: 2px 4px; }
+                        #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button { display: block; }
+                        #${uniqueId} .lmm-search-wrapper input:not(:placeholder-shown) + .lmm-clear-search-button + .lmm-search-info-button { display: none; }
+                        #${uniqueId} .lmm-search-info-button { position: absolute; right: 0px; color: #777; cursor: pointer; font-size: 13px; padding: 2px 4px; user-select: none; }
+                        #${uniqueId} .lmm-type-icons { display: flex; gap: 2px; font-size: 14px; line-height: 1; align-items: center; }
+                        #${uniqueId} .lmm-type-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
+                        #${uniqueId} .lmm-type-icons span.inactive { opacity: 0.2; }
+                        #${uniqueId} .lmm-search-scope-container { flex-shrink: 0; }
+                        #${uniqueId} .lmm-scope-icons { display: flex; gap: 2px; font-size: 14px; line-height: 1; align-items: center; }
+                        #${uniqueId} .lmm-scope-icons span { cursor: pointer; transition: opacity 0.15s; user-select: none; }
+                        #${uniqueId} .lmm-scope-icons span.inactive { opacity: 0.2; }
+                        #${uniqueId} .lmm-scope-icons .lmm-scope-divider { width: 1px; height: 14px; background: #555; margin: 0 2px; cursor: default; }
+                        #${uniqueId} .lmm-search-status { display: none; height: 0; overflow: visible; text-align: center; font-size: 11px; color: #aaa; pointer-events: none; z-index: 5; position: relative; }
+                        #${uniqueId} .lmm-search-status > span { background: rgba(26, 26, 26, 0.95); border-radius: 0 0 4px 4px; border: 1px solid #333; border-top: none; padding: 1px 8px; white-space: nowrap; }
                     </style>
                     <div class="lmm-container-wrapper">
                          <div class="lmm-controls lmm-top-bar">
@@ -647,20 +763,23 @@ app.registerExtension({
                                 <button class="lmm-add-path-button" title="Add current path to presets">➕</button>
                                 <button class="lmm-remove-path-button" title="Remove selected preset">➖</button>
                             </div>
-                            <button class="lmm-refresh-button">🔄 Refresh</button>
+                            <button class="lmm-refresh-button" title="Force rescan of the current directory, bypassing cache. Use when files were added or removed outside the manager.">🔄 Refresh</button>
                         </div>
                         <div class="lmm-controls" style="gap: 5px;">
-                            <label>Sort by:</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
-                            <label>Order:</label> <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
-                            <div style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
-                                <label>Images:</label> <input type="checkbox" class="lmm-show-images" checked>
-                                <label>Videos:</label> <input type="checkbox" class="lmm-show-videos">
-                                <label>Audio:</label> <input type="checkbox" class="lmm-show-audio">
-                                <button class="lmm-show-selected-btn" title="Show all selected items across folders">Show Selected</button>
+                            <label>Search:</label>
+                            <div class="lmm-search-wrapper">
+                                <input type="text" class="lmm-search-input" placeholder="Search by filename...">
+                                <button class="lmm-clear-search-button" title="Clear Search">✖️</button>
+                                <span class="lmm-search-info-button">❓</span>
+                            </div>
+                            <label>in</label>
+                            <div class="lmm-search-scope-container">
+                                <span class="lmm-scope-icons"><span data-scope="current">📂</span><span data-scope="input">📥</span><span data-scope="output">📤</span><span data-scope="saved">💾</span><span class="lmm-scope-divider"></span><span class="lmm-scope-all">🌐</span></span>
                             </div>
                         </div>
                         <div class="lmm-controls" style="gap: 5px;">
-                            <label>Filter by Tag:</label>
+                            <button class="lmm-combine-mode-btn" title="Switch how search query and tag filter combine (AND: both must match, OR: either can match)">AND</button>
+                            <label>by Tag:</label>
                             <button class="lmm-tag-filter-mode-btn" title="Click to switch filter logic (OR/AND)">OR</button>
                             <div class="lmm-tag-filter-wrapper">
                                 <input type="text" class="lmm-tag-filter-input" placeholder="Enter tags, separated by commas...">
@@ -673,12 +792,28 @@ app.registerExtension({
                                 </div>
                                 <div class="lmm-multiselect-tag-dropdown"></div>
                             </div>
-                            <label>Global:</label> <input type="checkbox" class="lmm-global-search">
                             <div style="margin-left: auto; display: flex; gap: 5px;">
                                 <button class="lmm-mask-editor-btn" title="Open Mask Editor for selected image">Mask Editor</button>
-                                <button class="lmm-batch-action-btn lmm-batch-select-all-btn" title="Select All Files in Current View">All</button>
                                 <button class="lmm-batch-action-btn lmm-batch-move-btn" title="Move Selected Files" disabled>➔ Move</button>
                                 <button class="lmm-batch-action-btn lmm-batch-delete-btn" title="Delete Selected Files" disabled>🗑️ Delete</button>
+                            </div>
+                        </div>
+                        <div class="lmm-controls" style="gap: 5px;">
+                            <label>Sort</label> <select class="lmm-sort-by"> <option value="name">Name</option> <option value="date">Date</option> <option value="rating">Rating</option> </select>
+                            <select class="lmm-sort-order"> <option value="asc">Ascending</option> <option value="desc">Descending</option> </select>
+                            <div class="lmm-multiselect-rating">
+                                <div class="lmm-multiselect-rating-display">
+                                    <span class="lmm-rating-display-text">0★ 1★ 2★ 3★ 4★ 5★</span>
+                                    <span class="lmm-multiselect-arrow">▼</span>
+                                </div>
+                                <div class="lmm-multiselect-rating-dropdown"></div>
+                            </div>
+                            <span class="lmm-mask-filter-toggle inactive" title="No mask filter active. Click to cycle: mask only → no mask → off">🎭</span>
+                            <div style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
+                                <span class="lmm-type-icons"><span data-type="images" title="Show images">🖼️</span><span data-type="videos" title="Show videos">🎬</span><span data-type="audio" class="inactive" title="Show audio">🔊</span></span>
+                                <button class="lmm-recursive-btn inactive" title="Show items from all subdirectories recursively">📂 Recursive</button>
+                                <button class="lmm-show-selected-btn" title="Show all selected items across folders">Show Selected</button>
+                                <button class="lmm-batch-action-btn lmm-batch-select-all-btn" title="Select All Files in Current View">Select All</button>
                             </div>
                         </div>
                         <div class="lmm-controls lmm-tag-editor">
@@ -691,6 +826,7 @@ app.registerExtension({
                                 <button class="lmm-rename-btn">✔️</button>
                             </div>
                             </div>
+                        <div class="lmm-search-status"><span></span></div>
                         <div class="lmm-cardholder">
                             <div class="lmm-gallery-placeholder">Enter folder path and click 'Refresh'.</div>
                         </div>
@@ -698,28 +834,331 @@ app.registerExtension({
                 `;
                 this.addDOMWidget("local_image_gallery", "div", galleryContainer, {});
                 this.size = [800, 670];
-                
+
                 const cardholder = galleryContainer.querySelector(".lmm-cardholder");
                 const controls = galleryContainer.querySelector(".lmm-container-wrapper");
                 const placeholder = galleryContainer.querySelector(".lmm-gallery-placeholder");
-                
+
                 const breadcrumbContainer = controls.querySelector(".lmm-breadcrumb-container");
                 const breadcrumbEl = breadcrumbContainer.querySelector(".lmm-breadcrumb");
                 const pathInput = breadcrumbContainer.querySelector("input[type='text']");
-                
+
                 const pathPresets = controls.querySelector(".lmm-path-presets");
                 const addPathButton = controls.querySelector(".lmm-add-path-button");
                 const removePathButton = controls.querySelector(".lmm-remove-path-button");
                 const upButton = controls.querySelector(".lmm-up-button");
-                const showImagesCheckbox = controls.querySelector(".lmm-show-images");
-                const showVideosCheckbox = controls.querySelector(".lmm-show-videos");
-                const showAudioCheckbox = controls.querySelector(".lmm-show-audio");
+                const typeIcons = controls.querySelectorAll(".lmm-type-icons span[data-type]");
+                const isTypeActive = (type) => !controls.querySelector(`.lmm-type-icons span[data-type="${type}"]`).classList.contains('inactive');
+                typeIcons.forEach(icon => {
+                    icon.addEventListener('click', () => {
+                        icon.classList.toggle('inactive');
+                        saveStateAndReload(false);
+                    });
+                });
                 const tagFilterInput = controls.querySelector(".lmm-tag-filter-input");
                 const tagFilterModeBtn = controls.querySelector(".lmm-tag-filter-mode-btn");
+                const combineModeBtn = controls.querySelector(".lmm-combine-mode-btn");
                 const multiSelectTagContainer = controls.querySelector(".lmm-multiselect-tag");
                 const multiSelectTagDisplay = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-display");
                 const multiSelectTagDropdown = multiSelectTagContainer.querySelector(".lmm-multiselect-tag-dropdown");
-                const globalSearchCheckbox = controls.querySelector(".lmm-global-search");
+                const ratingContainer = controls.querySelector(".lmm-multiselect-rating");
+                const ratingDisplay = ratingContainer.querySelector(".lmm-multiselect-rating-display");
+                const ratingDropdown = ratingContainer.querySelector(".lmm-multiselect-rating-dropdown");
+                const ratingDisplayText = ratingContainer.querySelector(".lmm-rating-display-text");
+                const ratingArrow = ratingContainer.querySelector(".lmm-multiselect-arrow");
+                const recursiveBtn = controls.querySelector(".lmm-recursive-btn");
+                const maskFilterToggle = controls.querySelector(".lmm-mask-filter-toggle");
+                let maskFilterState = ''; // '' = off, 'mask_only', 'no_mask'
+                const searchInput = controls.querySelector(".lmm-search-input");
+                const searchStatus = controls.querySelector(".lmm-search-status");
+                const searchScopeContainer = controls.querySelector(".lmm-search-scope-container");
+                const scopeIcons = searchScopeContainer.querySelectorAll(".lmm-scope-icons span[data-scope]");
+                const scopeAllToggle = searchScopeContainer.querySelector(".lmm-scope-all");
+                const activeScopes = new Set(['current', 'input', 'output', 'saved']);
+
+                const getSelectedScopes = () => Array.from(activeScopes);
+
+                const updateScopeDisplay = () => {
+                    scopeIcons.forEach(icon => {
+                        icon.classList.toggle('inactive', !activeScopes.has(icon.dataset.scope));
+                    });
+                    scopeAllToggle.classList.toggle('inactive', activeScopes.size < 4);
+                    // Disable search input when no scopes selected
+                    if (activeScopes.size === 0) {
+                        if (!searchInput.disabled && searchInput.value) {
+                            searchInput.dataset.savedValue = searchInput.value;
+                            searchInput.value = '';
+                        }
+                        searchInput.disabled = true;
+                        searchInput.placeholder = 'Enable a search scope to search';
+                    } else {
+                        if (searchInput.disabled) {
+                            if (searchInput.dataset.savedValue) {
+                                searchInput.value = searchInput.dataset.savedValue;
+                                delete searchInput.dataset.savedValue;
+                            }
+                            searchInput.disabled = false;
+                            searchInput.placeholder = 'Search by filename...';
+                        }
+                    }
+                };
+
+                scopeIcons.forEach(icon => {
+                    icon.addEventListener('click', () => {
+                        const scope = icon.dataset.scope;
+                        const hadQuery = !!(searchInput.value.trim() || searchInput.dataset.savedValue);
+                        if (activeScopes.has(scope)) activeScopes.delete(scope);
+                        else activeScopes.add(scope);
+                        updateScopeDisplay();
+                        if (hadQuery) {
+                            saveStateAndReload(false);
+                        } else {
+                            saveCurrentControlsState();
+                        }
+                    });
+                });
+                scopeAllToggle.addEventListener('click', () => {
+                    const allScopes = ['current', 'input', 'output', 'saved'];
+                    const hadQuery = !!(searchInput.value.trim() || searchInput.dataset.savedValue);
+                    if (activeScopes.size === allScopes.length) {
+                        activeScopes.clear();
+                    } else {
+                        allScopes.forEach(s => activeScopes.add(s));
+                    }
+                    updateScopeDisplay();
+                    if (hadQuery) {
+                        saveStateAndReload(false);
+                    } else {
+                        saveCurrentControlsState();
+                    }
+                });
+
+                // Scope icon tooltips — appended to body to avoid transform containment
+                const scopeTip = document.createElement('div');
+                Object.assign(scopeTip.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#ccc', fontSize: '22px',
+                    padding: '8px 14px', borderRadius: '4px', border: '1px solid #444',
+                    pointerEvents: 'none', zIndex: '10000', whiteSpace: 'pre', lineHeight: '1.4',
+                    opacity: '0', transition: 'opacity 0.15s',
+                });
+                document.body.appendChild(scopeTip);
+                let scopeTipTimer = null;
+                const scopeTipText = (el) => {
+                    const t = (text) => `<span style="color:#eee;font-weight:500">${text}</span>`;
+                    const d = (text) => `<span style="color:#999;font-size:20px">${text}</span>`;
+                    const scope = el.dataset.scope;
+                    if (scope === 'current') {
+                        let dir = pathInput.value.trim() || '(none)';
+                        if (dir !== '(none)' && !dir.endsWith('/')) dir = dir + '/';
+                        return t('Include current directory in search scope') + '\n' + d(dir);
+                    }
+                    if (scope === 'input') return t('Include input directory in search scope');
+                    if (scope === 'output') return t('Include output directory in search scope');
+                    if (scope === 'saved') {
+                        const paths = Array.from(pathPresets.options).map(o => o.value).filter(Boolean);
+                        let detail = '';
+                        if (paths.length === 0) {
+                            detail = d('(none configured)');
+                        } else {
+                            const show = paths.slice(0, 10);
+                            detail = show.map(p => d(p)).join('\n');
+                            if (paths.length > 10) detail += '\n' + d(`  \u2026and ${paths.length - 10} more`);
+                        }
+                        return detail + '\n' + t('Include saved paths in search scope');
+                    }
+                    if (el.classList.contains('lmm-scope-all')) return t('Toggle all search scopes');
+                    return '';
+                };
+                const showScopeTip = (el) => {
+                    clearTimeout(scopeTipTimer);
+                    scopeTipTimer = setTimeout(() => {
+                        scopeTip.innerHTML = scopeTipText(el);
+                        scopeTip.style.opacity = '1';
+                        const rect = el.getBoundingClientRect();
+                        scopeTip.style.left = rect.left + rect.width / 2 - scopeTip.offsetWidth / 2 + 'px';
+                        scopeTip.style.top = rect.top - scopeTip.offsetHeight - 4 + 'px';
+                    }, 250);
+                };
+                const hideScopeTip = () => {
+                    clearTimeout(scopeTipTimer);
+                    scopeTip.style.opacity = '0';
+                };
+                searchScopeContainer.querySelectorAll('.lmm-scope-icons span:not(.lmm-scope-divider)').forEach(el => {
+                    el.addEventListener('mouseenter', () => showScopeTip(el));
+                    el.addEventListener('mouseleave', hideScopeTip);
+                });
+
+                // Search guide dialog — appended to body to avoid transform containment
+                const searchInfoBtn = controls.querySelector(".lmm-search-info-button");
+                let guideOpen = false;
+
+                // Small hint tooltip
+                const searchInfoHint = document.createElement('div');
+                Object.assign(searchInfoHint.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#999', fontSize: '20px',
+                    padding: '4px 10px', borderRadius: '4px', border: '1px solid #444',
+                    pointerEvents: 'none', zIndex: '10001', whiteSpace: 'nowrap',
+                    opacity: '0', transition: 'opacity 0.15s',
+                });
+                searchInfoHint.textContent = 'Click the ❓ to show the search guide';
+                document.body.appendChild(searchInfoHint);
+                let hintTimer = null;
+                searchInfoBtn.addEventListener('mouseenter', () => {
+                    if (guideOpen) return;
+                    clearTimeout(hintTimer);
+                    hintTimer = setTimeout(() => {
+                        const rect = searchInfoBtn.getBoundingClientRect();
+                        const vh = window.innerHeight;
+                        searchInfoHint.style.left = Math.max(4, rect.left + rect.width / 2 - searchInfoHint.offsetWidth / 2) + 'px';
+                        if (rect.top < vh * 0.5) {
+                            searchInfoHint.style.top = rect.top - searchInfoHint.offsetHeight - 4 + 'px';
+                        } else {
+                            searchInfoHint.style.top = rect.bottom + 4 + 'px';
+                        }
+                        searchInfoHint.style.opacity = '1';
+                    }, 250);
+                });
+                searchInfoBtn.addEventListener('mouseleave', () => {
+                    clearTimeout(hintTimer);
+                    searchInfoHint.style.opacity = '0';
+                });
+
+                // Guide dialog
+                const searchGuide = document.createElement('div');
+                Object.assign(searchGuide.style, {
+                    position: 'fixed', background: '#1a1a1a', color: '#ccc', fontSize: '22px',
+                    borderRadius: '8px', border: '1px solid #444',
+                    zIndex: '10000', lineHeight: '1.5',
+                    opacity: '0', pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column',
+                    transform: 'scale(0.3)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                });
+                // Header
+                const guideHeader = document.createElement('div');
+                Object.assign(guideHeader.style, {
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 16px', borderBottom: '1px solid #444', flexShrink: '0',
+                    cursor: 'default',
+                });
+                guideHeader.innerHTML = [
+                    `<span style="color:#eee;font-weight:600;font-size:22px">Search Guide</span>`,
+                    `<span class="lmm-guide-close" style="color:#999;cursor:pointer;font-size:18px;padding:2px 8px;border-radius:4px">✕</span>`,
+                ].join('');
+                const guideCloseBtn = guideHeader.querySelector('.lmm-guide-close');
+                guideCloseBtn.addEventListener('mouseenter', () => { guideCloseBtn.style.color = '#fff'; });
+                guideCloseBtn.addEventListener('mouseleave', () => { guideCloseBtn.style.color = '#999'; });
+                // Body
+                const guideBody = document.createElement('div');
+                Object.assign(guideBody.style, { padding: '12px 16px', overflowY: 'auto', flex: '1' });
+                const c = (s) => `<code style="background:#333;padding:1px 4px;border-radius:3px">${s}</code>`;
+                const kbd = (s) => `<kbd style="background:#333;padding:1px 5px;border-radius:3px;border:1px solid #555">${s}</kbd>`;
+                guideBody.innerHTML = [
+                    `<div style="color:#bbb"><b style="color:#eee">Substring</b> (default) — matches any part of the filename.</div>`,
+                    `<div style="color:#bbb;margin-top:4px"><b style="color:#eee">Wildcard</b> — use ${c('*')} and ${c('?')} for glob patterns. ${c('*.png')} finds all PNGs.</div>`,
+                    `<div style="color:#bbb;margin-top:4px"><b style="color:#eee">Fuzzy</b> — automatic fallback when no exact matches are found. Tolerates typos (1-2 edits depending on query length). Matches the filename without extension.</div>`,
+                    `<div style="color:#eee;font-weight:600;margin-top:10px;margin-bottom:6px">Scopes</div>`,
+                    `<div style="color:#bbb">The icons to the right (📂📥📤💾🌐) control which directories are searched. Toggle each independently or use 🌐 to toggle all.</div>`,
+                    `<div style="color:#bbb;margin-top:4px">Scopes apply to both filename search and tag filtering — only files within the selected directories are returned.</div>`,
+                    `<div style="color:#888;margin-top:8px;font-size:20px">Press ${kbd('Escape')} to clear the search field.</div>`,
+                ].join('');
+                searchGuide.appendChild(guideHeader);
+                searchGuide.appendChild(guideBody);
+                document.body.appendChild(searchGuide);
+
+                const positionGuide = () => {
+                    const vw = window.innerWidth;
+                    const vh = window.innerHeight;
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const w = Math.min(560, vw - 16);
+                    searchGuide.style.width = w + 'px';
+                    searchGuide.style.maxHeight = (vh - 16) + 'px';
+                    // Center on icon, clamp to viewport
+                    const iconCx = iconRect.left + iconRect.width / 2;
+                    const iconCy = iconRect.top + iconRect.height / 2;
+                    const left = Math.max(8, Math.min(iconCx - w / 2, vw - w - 8));
+                    const guideH = searchGuide.offsetHeight;
+                    const top = Math.max(8, Math.min(iconCy - guideH / 2, vh - guideH - 8));
+                    searchGuide.style.left = left + 'px';
+                    searchGuide.style.top = top + 'px';
+                };
+                // rAF loop to follow graph panning while open
+                let guideRaf = null;
+                const guideLoop = () => {
+                    if (!guideOpen) { guideRaf = null; return; }
+                    positionGuide();
+                    guideRaf = requestAnimationFrame(guideLoop);
+                };
+                const openGuide = () => {
+                    if (guideOpen) return;
+                    guideOpen = true;
+                    positionGuide();
+                    // Measure without transition to compute transform-origin
+                    searchGuide.style.transition = 'none';
+                    searchGuide.style.transform = 'none';
+                    searchGuide.style.opacity = '0';
+                    searchGuide.offsetHeight;
+                    const guideRect = searchGuide.getBoundingClientRect();
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const ox = iconRect.left + iconRect.width / 2 - guideRect.left;
+                    const oy = iconRect.top + iconRect.height / 2 - guideRect.top;
+                    searchGuide.style.transformOrigin = `${ox}px ${oy}px`;
+                    searchGuide.style.transform = 'scale(0.3)';
+                    searchGuide.offsetHeight;
+                    // Animate open
+                    searchGuide.style.transition = 'transform 0.3s ease, opacity 0.25s ease';
+                    searchGuide.style.pointerEvents = 'auto';
+                    searchGuide.style.transform = 'scale(1)';
+                    searchGuide.style.opacity = '1';
+                    // Start tracking position
+                    guideRaf = requestAnimationFrame(guideLoop);
+                };
+                const closeGuide = () => {
+                    if (!guideOpen) return;
+                    guideOpen = false;
+                    if (guideRaf) { cancelAnimationFrame(guideRaf); guideRaf = null; }
+                    const guideRect = searchGuide.getBoundingClientRect();
+                    const iconRect = searchInfoBtn.getBoundingClientRect();
+                    const ox = iconRect.left + iconRect.width / 2 - guideRect.left;
+                    const oy = iconRect.top + iconRect.height / 2 - guideRect.top;
+                    searchGuide.style.transformOrigin = `${ox}px ${oy}px`;
+                    searchGuide.style.transform = 'scale(0.3)';
+                    searchGuide.style.opacity = '0';
+                    searchGuide.style.pointerEvents = 'none';
+                };
+                searchInfoBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearTimeout(hintTimer);
+                    searchInfoHint.style.opacity = '0';
+                    if (guideOpen) closeGuide(); else openGuide();
+                });
+                guideCloseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeGuide();
+                });
+                // Close on click-outside but not drag-outside (pointer events
+                // in capture phase — mouse events get suppressed by LiteGraph)
+                let guidePointerDown = null;
+                document.addEventListener('pointerdown', (e) => {
+                    if (guideOpen && !searchGuide.contains(e.target) && e.target !== searchInfoBtn) {
+                        guidePointerDown = { x: e.clientX, y: e.clientY };
+                    }
+                }, true);
+                document.addEventListener('pointerup', (e) => {
+                    if (!guidePointerDown) return;
+                    const dx = e.clientX - guidePointerDown.x;
+                    const dy = e.clientY - guidePointerDown.y;
+                    guidePointerDown = null;
+                    if (dx * dx + dy * dy < 25) closeGuide(); // <5px = click, not drag
+                }, true);
+                document.addEventListener('keydown', (e) => {
+                    if (guideOpen && e.key === 'Escape') {
+                        e.stopPropagation();
+                        closeGuide();
+                    }
+                }, true);
+
+                const clearSearchButton = controls.querySelector(".lmm-clear-search-button");
                 const tagEditor = controls.querySelector(".lmm-tag-editor");
                 const tagEditorInput = controls.querySelector(".lmm-tag-editor-input");
                 const tagEditorList = controls.querySelector(".lmm-tag-editor-list");
@@ -731,23 +1170,23 @@ app.registerExtension({
                 const renameContainer = controls.querySelector(".lmm-rename-container");
                 const renameInput = controls.querySelector(".lmm-rename-input");
                 const renameBtn = controls.querySelector(".lmm-rename-btn");
-                
+
                 const renderBreadcrumb = (path) => {
                     breadcrumbEl.innerHTML = '';
-                    if (!path || path === "Selected Items" || path === "Global Search") {
+                    if (!path || path === "Selected Items") {
                         const staticItem = document.createElement('span');
                         staticItem.textContent = path || "Enter a path...";
                         staticItem.style.paddingLeft = '4px';
                         breadcrumbEl.appendChild(staticItem);
                         return;
                     }
-                    
+
                     path = path.replace(/\\/g, '/');
                     const parts = path.split('/').filter(p => p);
-                    
+
                     let builtPath = '';
                     const elements = [];
-                    
+
                     if (path.match(/^[a-zA-Z]:\//)) {
                         const drive = parts.shift();
                         builtPath = drive + '/';
@@ -764,52 +1203,52 @@ app.registerExtension({
                         rootEl.dataset.path = builtPath;
                         elements.push(rootEl);
                     }
-                    
+
                     parts.forEach((part, index) => {
                         const separator = document.createElement('span');
                         separator.className = 'lmm-breadcrumb-separator';
                         separator.textContent = '>';
                         elements.push(separator);
-                        
+
                         let currentPartPath = builtPath + part + '/';
                         builtPath = currentPartPath;
-                        
+
                         const partEl = document.createElement('span');
                         partEl.className = 'lmm-breadcrumb-item';
                         partEl.textContent = part;
                         partEl.dataset.path = currentPartPath;
                         elements.push(partEl);
                     });
-                    
+
                     breadcrumbEl.append(...elements);
-                    
+
                     requestAnimationFrame(() => {
                         const containerWidth = breadcrumbEl.clientWidth;
                         let currentWidth = 0;
                         elements.forEach(el => currentWidth += el.offsetWidth);
-                        
+
                         if (currentWidth > containerWidth) {
                             const toRemove = [];
                             let removableWidth = currentWidth - containerWidth;
-                            
+
                             for (let i = elements.length - 3; i > 1; i--) {
-                               const el = elements[i];
+                                const el = elements[i];
                                 if (removableWidth > 0 && !(el.classList.contains('lmm-breadcrumb-item') && i === elements.length - 1)) {
-                                     removableWidth -= el.offsetWidth;
-                                     toRemove.push(el);
+                                    removableWidth -= el.offsetWidth;
+                                    toRemove.push(el);
                                 } else {
-                                     break;
+                                    break;
                                 }
                             }
-                            
+
                             if (toRemove.length > 0) {
                                 const ellipsis = document.createElement('span');
                                 ellipsis.className = 'lmm-breadcrumb-ellipsis';
                                 ellipsis.textContent = '...';
-                                if(elements[1]) { 
+                                if (elements[1]) {
                                     elements[1].insertAdjacentElement('afterend', ellipsis);
                                     const nextSeparator = elements[1].nextElementSibling.nextElementSibling;
-                                    if(nextSeparator && nextSeparator.classList.contains('lmm-breadcrumb-separator')) {
+                                    if (nextSeparator && nextSeparator.classList.contains('lmm-breadcrumb-separator')) {
                                         nextSeparator.remove();
                                     }
                                 }
@@ -817,11 +1256,22 @@ app.registerExtension({
                             }
                         }
                     });
-                    
+
                 };
-                
+
                 breadcrumbEl.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    // If search is active, clicking breadcrumb cancels search
+                    if (searchInput.value.trim() || searchInput.dataset.savedValue) {
+                        searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
+                        lastSearchedQuery = '';
+                        clearTimeout(searchDebounceTimer);
+                        pathInput.value = lastKnownPath;
+                        saveStateAndReload(false);
+                        pathPresets.selectedIndex = 0;
+                        return;
+                    }
                     if (e.target.classList.contains('lmm-breadcrumb-item')) {
                         const newPath = e.target.dataset.path;
                         pathInput.value = newPath;
@@ -835,19 +1285,19 @@ app.registerExtension({
                         pathInput.select();
                     }
                 });
-                
+
                 const switchToBreadcrumb = (forceReload = true) => {
                     pathInput.style.display = 'none';
                     breadcrumbEl.style.display = 'flex';
                     const currentPath = pathInput.value.trim();
-                    if(forceReload && lastKnownPath !== currentPath) {
-                       lastKnownPath = currentPath;
-                       saveStateAndReload(true);
+                    if (forceReload && lastKnownPath !== currentPath) {
+                        lastKnownPath = currentPath;
+                        saveStateAndReload(false);
                     } else {
-                       renderBreadcrumb(currentPath);
+                        renderBreadcrumb(currentPath);
                     }
                 };
-                
+
                 pathInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         switchToBreadcrumb();
@@ -858,94 +1308,98 @@ app.registerExtension({
                         e.preventDefault();
                     }
                 });
-                
+
                 pathInput.addEventListener('blur', () => {
-                   switchToBreadcrumb();
+                    switchToBreadcrumb();
                 });
-                
+
                 const updateBatchActionButtonsState = () => {
                     const hasSelection = selection.length > 0;
                     batchDeleteBtn.disabled = !hasSelection;
                     batchMoveBtn.disabled = !hasSelection;
                 };
-                
+
                 let isLoading = false, currentPage = 1, totalPages = 1, parentDir = null;
                 let selection = [];
                 let showSelectedMode = false;
+                let recursiveMode = false;
                 let lastKnownPath = "";
                 let selectedCardsForEditing = new Set();
-                
-                let allItems = []; 
+
+                let allItems = [];
                 let layoutData = [];
                 const VIRTUAL_SCROLL_PADDING = 500;
                 let columnCount = 0;
                 let actualCardWidth = 0;
-                
+
                 const debounce = (func, delay) => { let timeoutId; return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func.apply(this, args), delay); }; };
-                
+
                 const calculateFullLayout = () => {
-                    const minCardWidth = 150, gap = 5, containerWidth = cardholder.clientWidth;
+                    const minCardWidth = 150, gap = 3, containerWidth = cardholder.clientWidth;
                     if (containerWidth === 0 || allItems.length === 0) {
                         cardholder.style.height = '0px';
                         layoutData = [];
                         return;
                     }
-                    
+
                     placeholder.style.display = 'none';
-                    
+
                     columnCount = Math.max(1, Math.floor(containerWidth / (minCardWidth + gap)));
                     const totalGapSpace = (columnCount - 1) * gap;
                     actualCardWidth = (containerWidth - totalGapSpace) / columnCount;
                     const columnHeights = new Array(columnCount).fill(0);
 
+                    // Measure info panel base height once (1 reflow), then estimate tag rows with math.
+                    // This avoids N reflows from the old measuringDiv-per-item approach.
                     const measuringDivId = `lmm-measuring-div-${uniqueId}`;
                     let measuringDiv = galleryContainer.querySelector(`#${measuringDivId}`);
                     if (!measuringDiv) {
                         measuringDiv = document.createElement("div");
                         measuringDiv.id = measuringDivId;
-                        measuringDiv.style.position = "absolute";
-                        measuringDiv.style.left = "-9999px";
-                        measuringDiv.style.visibility = "hidden";
-                        measuringDiv.style.pointerEvents = "none";
+                        measuringDiv.style.cssText = "position:absolute;left:-9999px;visibility:hidden;pointer-events:none";
                         galleryContainer.appendChild(measuringDiv);
                     }
+                    const sampleStars = Array.from({ length: 5 }, () => '<span class="lmm-star">☆</span>').join('');
+                    measuringDiv.innerHTML = `<div class="lmm-card-info-panel" style="width:${actualCardWidth}px">
+                        <div class="lmm-info-top-row"><div class="lmm-star-rating">${sampleStars}</div></div>
+                        <div class="lmm-card-actions"><div class="lmm-card-actions-right">
+                            <div class="copy-path-btn">📁</div><div class="edit-tags-btn">✏️</div><div class="open-media-btn">🔎</div>
+                        </div></div>
+                        <div class="lmm-tag-list"></div>
+                    </div>`;
+                    const INFO_PANEL_BASE = measuringDiv.querySelector('.lmm-card-info-panel').offsetHeight + 2;
+                    measuringDiv.innerHTML = "";
+                    const TAG_ROW_HEIGHT = 17; // 14px tag + 3px gap
+                    const AVG_TAG_WIDTH = 50;  // approximate px per tag (font-size 10px + padding)
+
+                    const estimateInfoPanelHeight = (item) => {
+                        if (!item.tags || item.tags.length === 0) return INFO_PANEL_BASE;
+                        const availableWidth = actualCardWidth - 4;
+                        const tagsPerRow = Math.max(1, Math.floor(availableWidth / AVG_TAG_WIDTH));
+                        const tagRows = Math.ceil(item.tags.length / tagsPerRow);
+                        return INFO_PANEL_BASE + tagRows * TAG_ROW_HEIGHT;
+                    };
 
                     layoutData = allItems.map((item, index) => {
-                        let aspectRatio = item.aspectRatio || 1.0; 
+                        let aspectRatio = item.aspectRatio || 1.0;
 
                         if (!isFinite(aspectRatio) || aspectRatio <= 0) {
                             aspectRatio = 1.0;
                         }
-                        
-                        let imagePartHeight = actualCardWidth / aspectRatio;
-                        
+
+                        const cardBorder = 6; // 3px border each side (box-sizing: border-box)
+                        let cardHeight;
+
                         if (item.type === 'image' || item.type === 'video') {
-                            imagePartHeight = Math.max(imagePartHeight, 100); 
-
-                            const tags = item.tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
-                            const workflowTextBadge = item.has_workflow ? `<div class="lmm-workflow-text-badge">Workflow</div>` : '';
-                            const stars = Array.from({ length: 5 }, (_, i) => `<span class="lmm-star">☆</span>`).join('');
-
-                            const infoPanelHTML = `
-                                <div class="lmm-card-info-panel" style="width: ${actualCardWidth}px;">
-                                    <div class="lmm-info-top-row">
-                                        <div class="lmm-star-rating">${stars}</div>
-                                        ${workflowTextBadge}
-                                    </div>
-                                    <div class="lmm-tag-list">${tags}</div>
-                                </div>
-                            `;
-                            measuringDiv.innerHTML = infoPanelHTML;
-                            
-                            const infoPanelHeight = measuringDiv.querySelector('.lmm-card-info-panel').offsetHeight + 2;
-                            var cardHeight = imagePartHeight + infoPanelHeight;
+                            const imagePartHeight = Math.max((actualCardWidth - cardBorder) / aspectRatio, 100);
+                            cardHeight = imagePartHeight + estimateInfoPanelHeight(item) + cardBorder;
                         } else {
-                            var cardHeight = 150; 
+                            cardHeight = 150;
                         }
-                        
+
                         const minHeight = Math.min(...columnHeights);
                         const columnIndex = columnHeights.indexOf(minHeight);
-                        
+
                         const position = {
                             left: columnIndex * (actualCardWidth + gap),
                             top: minHeight,
@@ -953,68 +1407,66 @@ app.registerExtension({
                             height: cardHeight,
                             columnIndex: columnIndex
                         };
-                        
+
                         columnHeights[columnIndex] += cardHeight + gap;
                         return position;
                     });
-                    
-                    measuringDiv.innerHTML = "";
-                    
+
                     const totalHeight = Math.max(...columnHeights);
                     cardholder.style.height = `${totalHeight}px`;
-                    
+
                     updateVisibleItemsAndRender();
                 };
-                
+
                 const debouncedLayout = debounce(calculateFullLayout, 50);
-                
+
                 const updateVisibleItemsAndRender = () => {
                     const scrollTop = cardholder.scrollTop;
                     const viewHeight = cardholder.clientHeight;
                     const viewStart = scrollTop - VIRTUAL_SCROLL_PADDING;
                     const viewEnd = scrollTop + viewHeight + VIRTUAL_SCROLL_PADDING;
-                    
+
                     const newVisibleItems = [];
                     allItems.forEach((item, index) => {
                         const itemLayout = layoutData[index];
                         if (!itemLayout) return;
-                        
+
                         const itemTop = itemLayout.top;
                         const itemBottom = itemLayout.top + itemLayout.height;
-                        
+
                         if (itemBottom > viewStart && itemTop < viewEnd) {
                             newVisibleItems.push({ item, index, layout: itemLayout });
                         }
                     });
-                    
+
                     const existingCards = new Map(
                         Array.from(cardholder.querySelectorAll('.lmm-gallery-card')).map(card => [card.dataset.path, card])
                     );
                     const visiblePaths = new Set(newVisibleItems.map(vi => vi.item.path));
-                    
+
                     existingCards.forEach((card, path) => {
                         if (!visiblePaths.has(path)) {
                             card.remove();
                         }
                     });
-                    
+
                     newVisibleItems.forEach(({ item, index, layout }) => {
                         let card = existingCards.get(item.path);
                         if (!card) {
                             card = createCardElement(item);
                             cardholder.appendChild(card);
                         }
-                        
+
                         card.style.left = `${layout.left}px`;
                         card.style.top = `${layout.top}px`;
                         card.style.width = `${layout.width}px`;
-                        
+
                         if (selection.some(sel => sel.path === item.path)) {
                             card.classList.add('lmm-selected');
                         } else {
                             card.classList.remove('lmm-selected');
                         }
-                        
+
                         if (selectedCardsForEditing.has(item.path)) {
                             card.classList.add('lmm-edit-selected');
                         } else {
@@ -1023,10 +1475,10 @@ app.registerExtension({
                     });
                     renderSelectionBadges();
                 }
-                
+
                 new ResizeObserver(debouncedLayout).observe(cardholder);
                 new ResizeObserver(() => renderBreadcrumb(pathInput.value)).observe(breadcrumbContainer);
-                
+
                 async function setUiState(nodeId, state) {
                     const galleryId = this.properties.gallery_unique_id;
                     try {
@@ -1035,9 +1487,9 @@ app.registerExtension({
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ node_id: nodeId, gallery_id: galleryId, state: state }),
                         });
-                    } catch(e) { console.error("LocalMediaManager: Failed to set UI state", e); }
+                    } catch (e) { console.error("LocalMediaManager: Failed to set UI state", e); }
                 }
-                
+
                 async function updateMetadata(path, { rating, tags }) {
                     try {
                         let payload = { path };
@@ -1046,23 +1498,35 @@ app.registerExtension({
                         await api.fetchApi("/local_image_gallery/update_metadata", {
                             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
                         });
-                    } catch(e) { console.error("Failed to update metadata:", e); }
+                    } catch (e) { console.error("Failed to update metadata:", e); }
                 }
-                
+
                 async function savePaths() {
                     const paths = Array.from(pathPresets.options).map(o => o.value);
                     try {
                         await api.fetchApi("/local_image_gallery/save_paths", {
                             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paths }),
                         });
-                    } catch(e) { console.error("Failed to save paths:", e); }
+                        _lmmCache.paths.promise = null;
+                    } catch (e) { console.error("Failed to save paths:", e); }
                 }
-                
+
                 async function loadAllTags() {
                     try {
-                        const response = await api.fetchApi("/local_image_gallery/get_all_tags");
-                        const data = await response.json();
+                        const data = await fetchTagsCached();
                         multiSelectTagDropdown.innerHTML = '';
+                        const allLabel = document.createElement('label');
+                        allLabel.style.borderBottom = '1px solid #444';
+                        const allCb = document.createElement('input');
+                        allCb.type = 'checkbox';
+                        allCb.className = 'lmm-select-all';
+                        allCb.addEventListener('change', () => {
+                            multiSelectTagDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)').forEach(cb => { cb.checked = allCb.checked; });
+                            handleTagSelectionChange();
+                        });
+                        allLabel.appendChild(allCb);
+                        allLabel.appendChild(document.createTextNode(' All'));
+                        multiSelectTagDropdown.appendChild(allLabel);
                         if (data.tags) {
                             data.tags.forEach(tag => {
                                 const label = document.createElement('label');
@@ -1075,21 +1539,21 @@ app.registerExtension({
                                 multiSelectTagDropdown.appendChild(label);
                             });
                         }
-                    } catch(e) { console.error("Failed to load all tags:", e); }
+                    } catch (e) { console.error("Failed to load all tags:", e); }
                 }
-                
+
                 function updateCardTagsUI(card) {
                     const tagListEl = card.querySelector('.lmm-tag-list');
                     if (!tagListEl) return;
-                    
+
                     const tags = card.dataset.tags ? card.dataset.tags.split(',').filter(Boolean) : [];
-                    tagListEl.innerHTML = tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
+                    tagListEl.innerHTML = tags.map(t => `<span class="lmm-tag" title="Click to filter by this tag">${t}</span>`).join('');
                 }
-                
+
                 function renderSelectionBadges() {
                     galleryContainer.querySelectorAll('.lmm-selection-badge').forEach(badge => badge.remove());
                     const visibleSelectedCards = Array.from(cardholder.querySelectorAll('.lmm-gallery-card.lmm-selected'));
-                    
+
                     visibleSelectedCards.forEach(card => {
                         const path = card.dataset.path;
                         const index = selection.findIndex(item => item.path === path);
@@ -1098,23 +1562,23 @@ app.registerExtension({
                             badge.className = 'lmm-selection-badge';
                             badge.textContent = index;
                             const mediaWrapper = card.querySelector('.lmm-card-media-wrapper');
-                            if(mediaWrapper) mediaWrapper.appendChild(badge);
+                            if (mediaWrapper) mediaWrapper.appendChild(badge);
                         }
                     });
                 }
-                
+
                 function renderTagEditor() {
                     tagEditorList.innerHTML = "";
                     selectedCountEl.textContent = selectedCardsForEditing.size;
-                    
+
                     if (selectedCardsForEditing.size === 0) {
                         tagEditor.classList.remove("lmm-visible");
                         renameContainer.style.display = "none";
                         return;
                     }
-                    
+
                     const itemsToEdit = allItems.filter(item => selectedCardsForEditing.has(item.path));
-                    
+
                     if (itemsToEdit.length === 1) {
                         const singleItem = itemsToEdit[0];
                         const filename = singleItem.path.split(/[/\\]/).pop();
@@ -1123,10 +1587,10 @@ app.registerExtension({
                     } else {
                         renameContainer.style.display = "none";
                     }
-                    
+
                     const allTags = itemsToEdit.map(item => item.tags || []);
                     const commonTags = allTags.length > 0 ? allTags.reduce((acc, tags) => acc.filter(tag => tags.includes(tag))) : [];
-                    
+
                     commonTags.forEach(tag => {
                         const tagEl = document.createElement("span");
                         tagEl.className = "lmm-tag";
@@ -1136,23 +1600,24 @@ app.registerExtension({
                         removeEl.textContent = " ⓧ";
                         removeEl.onclick = async (e) => {
                             e.stopPropagation();
-                            
+
                             const updatePromises = itemsToEdit.map(async (item) => {
                                 const newTags = item.tags.filter(t => t !== tag);
-                                item.tags = newTags; 
+                                item.tags = newTags;
                                 await updateMetadata(item.path, { tags: newTags });
-                                
+
                                 const cardInDom = cardholder.querySelector(`.lmm-gallery-card[data-path="${CSS.escape(item.path)}"]`);
                                 if (cardInDom) {
                                     cardInDom.dataset.tags = newTags.join(',');
                                     updateCardTagsUI(cardInDom);
                                 }
                             });
-                            
+
                             await Promise.all(updatePromises);
+                            _lmmCache.tags.promise = null;
                             await loadAllTags();
                             renderTagEditor();
-                            
+
                             if (tagFilterInput.value.trim()) {
                                 saveStateAndReload(false);
                             }
@@ -1160,10 +1625,10 @@ app.registerExtension({
                         tagEl.appendChild(removeEl);
                         tagEditorList.appendChild(tagEl);
                     });
-                    
+
                     tagEditor.classList.add("lmm-visible");
                 }
-                
+
                 const createCardElement = (item) => {
                     const card = document.createElement("div");
                     card.className = "lmm-gallery-card";
@@ -1171,8 +1636,27 @@ app.registerExtension({
                     card.dataset.type = item.type;
                     card.dataset.tags = item.tags.join(',');
                     card.dataset.rating = item.rating;
-                    card.title = item.name;
-                    
+                    const dir = item.path.substring(0, item.path.length - item.name.length);
+                    const d = new Date(item.mtime * 1000);
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const mtimeStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                    let tooltip = `Name: ${item.name}\nPath: ${dir}\nType: ${item.type}\nLast Edited: ${mtimeStr}`;
+                    if (item.media_info) {
+                        const mi = item.media_info;
+                        if (mi.width && mi.height) tooltip += `\nDimensions: ${mi.width}x${mi.height}`;
+                        if (mi.fps) tooltip += `\nFPS: ${mi.fps}`;
+                        if (mi.total_frames) tooltip += `\nFrames: ${mi.total_frames}`;
+                        if (mi.duration != null) {
+                            const s = Math.round(mi.duration);
+                            const h = Math.floor(s / 3600);
+                            const m = Math.floor((s % 3600) / 60);
+                            const sec = s % 60;
+                            tooltip += `\nDuration: ${h > 0 ? `${h}:${String(m).padStart(2,'0')}` : String(m)}:${String(sec).padStart(2,'0')}`;
+                        }
+                    }
+                    if (item.has_mask) tooltip += `\nMask: yes`;
+                    card.title = tooltip;
+
                     let mediaHTML = "";
                     if (item.type === 'dir') {
                         mediaHTML = `<div class="lmm-card-media-wrapper"><div class="lmm-folder-card"><div class="lmm-folder-icon">${folderSVG}</div><div class="lmm-folder-name">${item.name}</div></div></div>`;
@@ -1184,43 +1668,70 @@ app.registerExtension({
                         mediaHTML = `<div class="lmm-card-media-wrapper"><div class="lmm-audio-card"><div class="lmm-audio-icon">${audioSVG}</div><div class="lmm-audio-name">${item.name}</div></div></div>`;
                     }
                     card.innerHTML = mediaHTML;
-                    
+
+                    if (item.mask_path) {
+                        const wrapper = card.querySelector('.lmm-card-media-wrapper');
+                        if (wrapper) {
+                            const maskImg = document.createElement('img');
+                            maskImg.className = 'lmm-mask-overlay';
+                            maskImg.loading = 'lazy';
+                            maskImg.alt = 'mask';
+                            // Defer src until first hover to avoid loading all masks upfront
+                            const maskSrc = `/local_image_gallery/view?filepath=${encodeURIComponent(item.mask_path)}`;
+                            wrapper.addEventListener('mouseenter', () => {
+                                if (!maskImg.src) {
+                                    maskImg.src = maskSrc;
+                                    maskImg.onload = () => maskImg.classList.add('loaded');
+                                }
+                            }, { once: true });
+                            wrapper.appendChild(maskImg);
+                        }
+                    }
+
                     if (item.type === 'image' || item.type === 'video') {
                         const infoPanel = document.createElement("div");
                         infoPanel.className = 'lmm-card-info-panel';
                         const stars = Array.from({ length: 5 }, (_, i) => `<span class="lmm-star" data-value="${i + 1}">☆</span>`).join('');
-                        const tags = item.tags.map(t => `<span class="lmm-tag">${t}</span>`).join('');
-                        
+                        const tags = item.tags.map(t => `<span class="lmm-tag" title="Click to filter by this tag">${t}</span>`).join('');
+
                         const workflowTextBadge = item.has_workflow ? `<div class="lmm-workflow-text-badge" title="Click to load workflow">Workflow</div>` : '';
-                        
+                        const maskBadge = item.has_mask ? `<div class="lmm-mask-badge" title="Click to open mask editor">🎭 Mask</div>` : '';
+
                         infoPanel.innerHTML = `
                             <div class="lmm-info-top-row">
                                 <div class="lmm-star-rating">${stars}</div>
                                 ${workflowTextBadge}
                             </div>
+                            <div class="lmm-card-actions">
+                                ${maskBadge}
+                                <div class="lmm-card-actions-right">
+                                    <div class="copy-path-btn" title="Copy file path">📁</div>
+                                    <div class="edit-tags-btn" title="Edit tags">✏️</div>
+                                    <div class="open-media-btn" title="Open in lightbox">🔎</div>
+                                </div>
+                            </div>
                             <div class="lmm-tag-list">${tags}</div>
-                            <div class="edit-tags-btn">✏️</div>
                         `;
                         card.appendChild(infoPanel);
-                        
+
                         if (item.has_workflow) {
                             const workflowTextEl = card.querySelector(".lmm-workflow-text-badge");
                             if (workflowTextEl) {
                                 workflowTextEl.addEventListener("click", async (e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    
+
                                     workflowTextEl.style.backgroundColor = '#4CAF50';
                                     workflowTextEl.style.color = 'white';
                                     workflowTextEl.textContent = "Loading...";
-                                    
+
                                     try {
                                         const response = await api.fetchApi(`/local_image_gallery/view?filepath=${encodeURIComponent(item.path)}`);
                                         const blob = await response.blob();
                                         const file = new File([blob], item.name, { type: blob.type });
-                                        
+
                                         app.handleFile(file);
-                                        
+
                                         setTimeout(() => {
                                             workflowTextEl.style.backgroundColor = 'rgba(0,0,0,0.4)';
                                             workflowTextEl.style.color = '#FFD700';
@@ -1235,7 +1746,22 @@ app.registerExtension({
                                 });
                             }
                         }
-                        
+
+                        if (item.has_mask && item.type === 'image') {
+                            const maskBadgeEl = card.querySelector(".lmm-mask-badge");
+                            if (maskBadgeEl) {
+                                maskBadgeEl.addEventListener("click", (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (window.lmmOpenMaskEditor) {
+                                        window.lmmOpenMaskEditor(item.path, () => {
+                                            saveStateAndReload(true);
+                                        });
+                                    }
+                                });
+                            }
+                        }
+
                         const editBtn = infoPanel.querySelector(".edit-tags-btn");
                         editBtn.addEventListener("click", (e) => {
                             e.stopPropagation();
@@ -1261,7 +1787,37 @@ app.registerExtension({
                             }
                             renderTagEditor();
                         });
-                        
+
+                        const openBtn = infoPanel.querySelector(".open-media-btn");
+                        openBtn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            const currentMediaList = allItems.filter(i => ['image', 'video', 'audio'].includes(i.type));
+                            const idx = currentMediaList.findIndex(i => i.path === item.path);
+                            if (idx !== -1) showMediaAtIndex(idx, currentMediaList);
+                        });
+
+                        const copyPathBtn = infoPanel.querySelector(".copy-path-btn");
+                        copyPathBtn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            const doCopy = (text) => {
+                                if (navigator.clipboard?.writeText) {
+                                    return navigator.clipboard.writeText(text);
+                                }
+                                const ta = document.createElement('textarea');
+                                ta.value = text;
+                                ta.style.cssText = 'position:fixed;opacity:0';
+                                document.body.appendChild(ta);
+                                ta.select();
+                                document.execCommand('copy');
+                                ta.remove();
+                                return Promise.resolve();
+                            };
+                            doCopy(item.path).then(() => {
+                                copyPathBtn.textContent = '✓';
+                                setTimeout(() => { copyPathBtn.textContent = '📁'; }, 1000);
+                            }).catch(() => {});
+                        });
+
                         const starRating = infoPanel.querySelector('.lmm-star-rating');
                         const starsList = starRating.querySelectorAll('.lmm-star');
                         const rating = parseInt(item.rating || 0);
@@ -1272,7 +1828,7 @@ app.registerExtension({
                             }
                         });
                     }
-                    
+
                     const img = card.querySelector("img");
                     if (img) {
                         img.onload = () => {
@@ -1286,28 +1842,31 @@ app.registerExtension({
                             }
                         };
                         img.onerror = () => {
-                             const itemIndex = allItems.findIndex(i => i.path === item.path);
-                             if (itemIndex > -1 && !allItems[itemIndex].aspectRatio) {
-                                allItems[itemIndex].aspectRatio = 1.0; 
+                            const itemIndex = allItems.findIndex(i => i.path === item.path);
+                            if (itemIndex > -1 && !allItems[itemIndex].aspectRatio) {
+                                allItems[itemIndex].aspectRatio = 1.0;
                                 debouncedLayout();
-                             }
+                            }
                         };
+                        if (img.complete && img.naturalWidth > 0) {
+                            img.onload();
+                        }
                     }
-                    
+
                     return card;
                 };
-                
+
                 const fetchImages = async (page = 1, append = false, forceRefresh = false) => {
                     if (isLoading) return;
                     isLoading = true;
                     updateShowSelectedButtonUI();
-                    
+
                     if (!append) {
                         cardholder.style.opacity = 0;
                         await new Promise(resolve => setTimeout(resolve, 200));
                         currentPage = 1;
                     }
-                    
+
                     if (showSelectedMode) {
                         if (selection.length === 0) {
                             placeholder.textContent = "No items selected.";
@@ -1318,24 +1877,24 @@ app.registerExtension({
                             isLoading = false;
                             return;
                         }
-                        
+
                         placeholder.textContent = "Loading selected items...";
                         placeholder.style.display = 'block';
                         try {
                             const response = await api.fetchApi("/local_image_gallery/get_selected_items", {
                                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ selection: selection }),
                             });
-                            
+
                             if (!response.ok) { const errorData = await response.json(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`); }
-                            
+
                             const api_data = await response.json();
                             allItems = api_data.items || [];
                             renderBreadcrumb("Selected Items");
                             breadcrumbEl.style.pointerEvents = "none";
                             upButton.disabled = true;
-                            
+
                             calculateFullLayout();
-                            
+
                         } catch (error) {
                             placeholder.textContent = `Error: ${error.message}`;
                             placeholder.style.color = 'red';
@@ -1345,84 +1904,141 @@ app.registerExtension({
                         }
                         return;
                     }
-                    
+
                     breadcrumbEl.style.pointerEvents = "auto";
-                    
+
                     const directory = pathInput.value;
-                    const showImages = showImagesCheckbox.checked;
-                    const showVideos = showVideosCheckbox.checked;
-                    const showAudio = showAudioCheckbox.checked;
+                    const showImages = isTypeActive('images');
+                    const showVideos = isTypeActive('videos');
+                    const showAudio = isTypeActive('audio');
                     const filterTag = tagFilterInput.value;
-                    const isGlobalSearch = globalSearchCheckbox.checked;
+                    const currentSearchQuery = searchInput.value.trim();
+                    const currentSearchScopes = getSelectedScopes();
+                    const isGlobalSearch = !!(currentSearchQuery) || (filterTag && !(currentSearchScopes.length === 1 && currentSearchScopes[0] === 'current'));
                     const filterMode = tagFilterModeBtn.textContent;
-                    
-                    if (!directory && !isGlobalSearch) {
+                    const combineMode = combineModeBtn.textContent;
+
+                    if (!directory && !isGlobalSearch && !currentSearchQuery) {
                         placeholder.textContent = "Enter folder path and click 'Refresh'.";
                         placeholder.style.display = 'block';
                         allItems = [];
                         calculateFullLayout();
                         cardholder.style.opacity = 1;
+                        searchStatus.style.display = 'none';
                         isLoading = false;
                         return;
                     }
-                    
+
                     if (!append) {
-                        placeholder.textContent = "Loading...";
+                        placeholder.textContent = currentSearchQuery ? "Searching..." : "Loading...";
                         placeholder.style.display = 'block';
                     }
-                    
+
                     const sortBy = controls.querySelector(".lmm-sort-by").value;
                     const sortOrder = controls.querySelector(".lmm-sort-order").value;
-                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${isGlobalSearch ? 'global' : 'local'}&filter_mode=${filterMode}&force_refresh=${forceRefresh}`;
-                    
+                    let searchMode = 'local';
+                    if (currentSearchQuery) {
+                        searchMode = 'local';
+                    } else if (filterTag && !(currentSearchScopes.length === 1 && currentSearchScopes[0] === 'current')) {
+                        searchMode = 'global';
+                    }
+                    let url = `/local_image_gallery/images?directory=${encodeURIComponent(directory)}&page=${page}&sort_by=${sortBy}&sort_order=${sortOrder}&show_images=${showImages}&show_videos=${showVideos}&show_audio=${showAudio}&filter_tag=${encodeURIComponent(filterTag)}&search_mode=${searchMode}&filter_mode=${filterMode}&combine_mode=${combineMode}&force_refresh=${forceRefresh}&search_query=${encodeURIComponent(currentSearchQuery)}`;
+                    currentSearchScopes.forEach(s => { url += `&search_scope=${encodeURIComponent(s)}`; });
+                    const selectedRatings = Array.from(ratingDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all):checked')).map(cb => cb.value);
+                    url += `&filter_ratings=${selectedRatings.join(',')}&recursive=${recursiveMode}&mask_filter=${maskFilterState}`;
+
                     if (selection.length > 0) {
                         selection.forEach(item => { url += `&selected_paths=${encodeURIComponent(item.path)}`; });
                     }
-                    
+
                     try {
                         const response = await api.fetchApi(url);
                         if (!response.ok) { const errorData = await response.json(); throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`); }
                         const api_data = await response.json();
                         const items = api_data.items || [];
-                        
+
                         totalPages = api_data.total_pages;
                         parentDir = api_data.parent_directory;
-                        
+
                         if (!api_data.is_global_search) {
                             pathInput.value = api_data.current_directory;
                             lastKnownPath = api_data.current_directory;
                             renderBreadcrumb(api_data.current_directory);
                             setUiState.call(this, this.id, { last_path: api_data.current_directory });
                         } else {
-                            renderBreadcrumb("Global Search");
-                            breadcrumbEl.style.pointerEvents = "none";
+                            renderBreadcrumb(lastKnownPath || '');
                         }
-                        
+
+                        // Update search status indicator
+                        const filterTag = tagFilterInput.value.trim();
+                        const hasQuery = !!currentSearchQuery;
+                        const hasTags = !!filterTag;
+                        if (hasQuery || hasTags) {
+                            // Build criteria: "query" and/or tags: [t1, t2]
+                            const criteriaParts = [];
+                            if (hasQuery) {
+                                const fuzzyLabel = api_data.fuzzy ? ' (fuzzy)' : '';
+                                criteriaParts.push(`"${currentSearchQuery}"${fuzzyLabel}`);
+                            }
+                            if (hasTags) {
+                                const tags = filterTag.split(',').map(t => t.trim()).filter(Boolean);
+                                criteriaParts.push(`tags: [${tags.join(', ')}]`);
+                            }
+                            // Build scope label
+                            let scopeLabel;
+                            if (currentSearchScopes.length === 4) {
+                                scopeLabel = 'all scopes';
+                            } else {
+                                const scopeParts = [];
+                                const dirScopes = [];
+                                if (currentSearchScopes.includes('current') && directory) {
+                                    let dirPath = directory.replace(/\\/g, '/');
+                                    if (!dirPath.endsWith('/')) dirPath += '/';
+                                    dirScopes.push(dirPath);
+                                }
+                                if (currentSearchScopes.includes('input') && currentSearchScopes.includes('output')) {
+                                    dirScopes.push('input/ & output/');
+                                } else {
+                                    if (currentSearchScopes.includes('input')) dirScopes.push('input/');
+                                    if (currentSearchScopes.includes('output')) dirScopes.push('output/');
+                                }
+                                if (dirScopes.length) scopeParts.push([...new Set(dirScopes)].join(', '));
+                                if (currentSearchScopes.includes('saved')) scopeParts.push('all saved paths');
+                                scopeLabel = scopeParts.join(' and ');
+                            }
+                            const criteriaJoiner = (hasQuery && hasTags && combineMode === 'OR') ? ' or ' : ' and ';
+                            searchStatus.querySelector('span').textContent = `\uD83D\uDD0D Searching media with ${criteriaParts.join(criteriaJoiner)} in ${scopeLabel}`;
+                            searchStatus.style.display = 'block';
+                        } else {
+                            searchStatus.style.display = 'none';
+                        }
+
                         upButton.disabled = api_data.is_global_search || !parentDir;
-                        
+
                         if (!append) {
                             allItems = items;
-                            cardholder.innerHTML = ''; 
+                            cardholder.innerHTML = '';
+                            cardholder.appendChild(placeholder);
                             cardholder.scrollTop = 0;
                         } else {
                             const existingPaths = new Set(allItems.map(i => i.path));
                             const newItems = items.filter(i => !existingPaths.has(i.path));
                             allItems.push(...newItems);
                         }
-                        
+
                         if (allItems.length === 0) {
-                            placeholder.textContent = api_data.is_global_search ? 'No items found for this tag.' : 'The folder is empty.';
+                            placeholder.textContent = currentSearchQuery ? `No files matching "${currentSearchQuery}".` : (recursiveMode ? 'No media files found in subdirectories.' : (api_data.is_global_search ? 'No items found for this tag.' : 'The folder is empty.'));
                             placeholder.style.display = 'block';
                         } else {
                             placeholder.style.display = 'none';
                         }
-                        
+
                         calculateFullLayout();
-                        
+
                         cardholder.style.opacity = 1;
                         currentPage = page;
-                        
-                    } catch (error) { 
+
+                    } catch (error) {
                         placeholder.textContent = `Error: ${error.message}`;
                         placeholder.style.color = 'red';
                         placeholder.style.display = 'block';
@@ -1430,24 +2046,24 @@ app.registerExtension({
                         calculateFullLayout();
                         cardholder.style.opacity = 1;
                     }
-                    finally { 
+                    finally {
                         isLoading = false;
                     }
                 };
-                
+
                 cardholder.addEventListener('click', async (event) => {
                     const card = event.target.closest('.lmm-gallery-card');
                     if (!card) return;
-                    
+
                     if (event.target.classList.contains('lmm-star')) {
                         event.stopPropagation();
                         const newRating = parseInt(event.target.dataset.value);
                         const currentRating = parseInt(card.dataset.rating || 0);
                         const finalRating = newRating === currentRating ? 0 : newRating;
-                        
+
                         const itemData = allItems.find(i => i.path === card.dataset.path);
-                        if(itemData) itemData.rating = finalRating;
-                        
+                        if (itemData) itemData.rating = finalRating;
+
                         card.dataset.rating = finalRating;
                         await updateMetadata(card.dataset.path, { rating: finalRating });
                         const starRating = card.querySelector('.lmm-star-rating');
@@ -1460,25 +2076,30 @@ app.registerExtension({
                     if (event.target.classList.contains('lmm-tag')) {
                         event.stopPropagation();
                         tagFilterInput.value = event.target.textContent;
-                        globalSearchCheckbox.checked = true;
-                        resetAndReload(true);
+                        lastFilteredTags = tagFilterInput.value.trim();
+                        syncTagDropdownToInput();
+                        ['current', 'input', 'output', 'saved'].forEach(s => activeScopes.add(s));
+                        updateScopeDisplay();
+                        resetAndReload(false);
                         return;
                     }
-                    
+
                     const type = card.dataset.type, path = card.dataset.path;
-                    
+
                     if (type === 'dir') {
                         pathInput.value = path;
-                        globalSearchCheckbox.checked = false;
+                        searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
+                        lastSearchedQuery = '';
                         tagFilterInput.value = "";
-                        resetAndReload(true);
+                        resetAndReload(false);
                         pathPresets.selectedIndex = 0;
                         return;
                     }
-                    
+
                     if (['image', 'video', 'audio'].includes(type)) {
                         const selectionIndex = selection.findIndex(item => item.path === path);
-                        
+
                         if (event.ctrlKey) {
                             if (selectionIndex > -1) {
                                 selection.splice(selectionIndex, 1);
@@ -1497,33 +2118,33 @@ app.registerExtension({
                                 card.classList.add('lmm-selected');
                             }
                         }
-                        
+
                         renderSelectionBadges();
-                        
+
                         const selectionJson = JSON.stringify(selection);
                         this.setProperty("selection", selectionJson);
                         const widget = this.widgets.find(w => w.name === "selection");
                         if (widget) { widget.value = selectionJson; }
-                        
+
                         setUiState.call(this, this.id, { selection: selection });
                         updateBatchActionButtonsState();
-                        
+
                     }
                 });
-                
+
                 cardholder.addEventListener('dblclick', (event) => {
                     const card = event.target.closest('.lmm-gallery-card');
                     if (!card || !['image', 'video', 'audio'].includes(card.dataset.type)) return;
-                    
+
                     const currentMediaList = allItems.filter(item => ['image', 'video', 'audio'].includes(item.type));
                     const clickedPath = card.dataset.path;
                     const startIndex = currentMediaList.findIndex(item => item.path === clickedPath);
-                    
+
                     if (startIndex !== -1) {
                         showMediaAtIndex(startIndex, currentMediaList);
                     }
                 });
-                
+
                 const lightbox = document.getElementById('global-image-lightbox');
                 const lightboxImg = lightbox.querySelector("img");
                 const lightboxVideo = lightbox.querySelector("video");
@@ -1533,19 +2154,19 @@ app.registerExtension({
                 let scale = 1, panning = false, pointX = 0, pointY = 0, start = { x: 0, y: 0 };
                 let lightboxMediaList = [];
                 let lightboxCurrentIndex = -1;
-                
+
                 function setTransform() { lightboxImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`; }
                 function resetLightboxState() { scale = 1; pointX = 0; pointY = 0; setTransform(); }
-                
+
                 function showMediaAtIndex(index, mediaList) {
                     lightboxMediaList = mediaList;
                     if (index < 0 || index >= lightboxMediaList.length) return;
                     lightboxCurrentIndex = index;
                     const media = lightboxMediaList[index];
-                    
+
                     resetLightboxState();
                     lightbox.style.display = 'flex';
-                    
+
                     const dimensionsEl = lightbox.querySelector(".lightbox-dimensions");
                     lightboxImg.style.display = 'none';
                     lightboxVideo.style.display = 'none';
@@ -1553,7 +2174,7 @@ app.registerExtension({
                     dimensionsEl.style.display = 'none';
                     lightboxVideo.pause();
                     lightboxAudio.pause();
-                    
+
                     if (media.type === 'image') {
                         lightboxImg.style.display = 'block';
                         lightboxImg.src = `/local_image_gallery/view?filepath=${encodeURIComponent(media.path)}`;
@@ -1572,14 +2193,14 @@ app.registerExtension({
                         lightboxAudio.style.display = 'block';
                         lightboxAudio.src = `/local_image_gallery/view?filepath=${encodeURIComponent(media.path)}`;
                     }
-                    
+
                     prevButton.disabled = lightboxCurrentIndex === 0;
                     nextButton.disabled = lightboxCurrentIndex === lightboxMediaList.length - 1;
                 }
-                
+
                 prevButton.addEventListener('click', () => showMediaAtIndex(lightboxCurrentIndex - 1, lightboxMediaList));
                 nextButton.addEventListener('click', () => showMediaAtIndex(lightboxCurrentIndex + 1, lightboxMediaList));
-                
+
                 lightboxImg.addEventListener('mousedown', (e) => { e.preventDefault(); panning = true; lightboxImg.classList.add('panning'); start = { x: e.clientX - pointX, y: e.clientY - pointY }; });
                 window.addEventListener('mouseup', () => { panning = false; lightboxImg.classList.remove('panning'); });
                 window.addEventListener('mousemove', (e) => { if (!panning) return; e.preventDefault(); pointX = e.clientX - start.x; pointY = e.clientY - start.y; setTransform(); });
@@ -1587,7 +2208,7 @@ app.registerExtension({
                     if (lightboxImg.style.display !== 'block') return;
                     e.preventDefault(); const rect = lightboxImg.getBoundingClientRect(); const delta = -e.deltaY; const oldScale = scale; scale *= (delta > 0 ? 1.1 : 1 / 1.1); scale = Math.max(0.2, scale); pointX = (1 - scale / oldScale) * (e.clientX - rect.left) + pointX; pointY = (1 - scale / oldScale) * (e.clientY - rect.top) + pointY; setTransform();
                 });
-                
+
                 const closeLightbox = () => {
                     lightbox.style.display = 'none';
                     lightboxImg.src = "";
@@ -1596,47 +2217,112 @@ app.registerExtension({
                 };
                 lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
                 lightbox.addEventListener('click', (e) => { if (e.target.classList.contains('lightbox-content')) closeLightbox(); });
-                
+
                 window.addEventListener('keydown', (e) => {
                     if (lightbox.style.display !== 'flex') return;
                     if (e.key === 'ArrowLeft') { e.preventDefault(); prevButton.click(); }
                     else if (e.key === 'ArrowRight') { e.preventDefault(); nextButton.click(); }
                     else if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); }
                 });
-                
+
+                const syncTagDropdownToInput = () => {
+                    const inputTags = new Set(tagFilterInput.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean));
+                    const checkboxes = multiSelectTagDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)');
+                    checkboxes.forEach(cb => { cb.checked = inputTags.has(cb.value.toLowerCase()); });
+                    const tagAllCb = multiSelectTagDropdown.querySelector('.lmm-select-all');
+                    if (tagAllCb) {
+                        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                        const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+                        tagAllCb.checked = allChecked;
+                        tagAllCb.indeterminate = !allChecked && !noneChecked;
+                    }
+                };
+
                 const saveCurrentControlsState = () => {
                     const sortBy = controls.querySelector(".lmm-sort-by");
                     const sortOrder = controls.querySelector(".lmm-sort-order");
-                    
+
                     const state = {
+                        last_path: lastKnownPath,
                         sort_by: sortBy.value,
                         sort_order: sortOrder.value,
-                        show_images: showImagesCheckbox.checked,
-                        show_videos: showVideosCheckbox.checked,
-                        show_audio: showAudioCheckbox.checked,
+                        show_images: isTypeActive('images'),
+                        show_videos: isTypeActive('videos'),
+                        show_audio: isTypeActive('audio'),
                         filter_tag: tagFilterInput.value,
-                        global_search: globalSearchCheckbox.checked,
+                        filter_mode: tagFilterModeBtn.textContent,
+                        combine_mode: combineModeBtn.textContent,
+                        search_query: searchInput.dataset.savedValue || searchInput.value,
+                        search_scopes: getSelectedScopes(),
                         show_selected_mode: showSelectedMode,
+                        filter_ratings: Array.from(ratingDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all):checked')).map(cb => parseInt(cb.value)),
+                        mask_filter: maskFilterState,
+                        recursive: recursiveMode,
+                        selection: selection,
                     };
                     setUiState.call(this, this.id, state);
+                    // Also save to node properties for clipspace (copy-paste)
+                    node_instance.setProperty("lmm_state", JSON.stringify(state));
                 };
-                
+
                 const handleTagSelectionChange = () => {
-                    const selectedTags = Array.from(multiSelectTagDropdown.querySelectorAll('input:checked')).map(cb => cb.value);
+                    const checkboxes = multiSelectTagDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)');
+                    const selectedTags = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
                     tagFilterInput.value = selectedTags.join(',');
-                    
+                    lastFilteredTags = tagFilterInput.value.trim();
+                    const tagAllCb = multiSelectTagDropdown.querySelector('.lmm-select-all');
+                    if (tagAllCb) {
+                        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                        const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+                        tagAllCb.checked = allChecked;
+                        tagAllCb.indeterminate = !allChecked && !noneChecked;
+                    }
                     saveStateAndReload(false);
                 };
-                
+
                 const saveStateAndReload = (forceRefresh = false) => {
                     saveCurrentControlsState();
                     resetAndReload(forceRefresh);
                 };
-                
+
                 const resetAndReload = (forceRefresh = false) => { fetchImages.call(this, 1, false, forceRefresh); };
                 controls.querySelector('.lmm-refresh-button').onclick = () => saveStateAndReload(true);
-                tagFilterInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveStateAndReload(false); });
-                
+                let tagFilterDebounceTimer = null;
+                let lastFilteredTags = '';
+                tagFilterInput.addEventListener('input', () => {
+                    clearTimeout(tagFilterDebounceTimer);
+                    tagFilterDebounceTimer = setTimeout(() => {
+                        const t = tagFilterInput.value.trim();
+                        if (t !== lastFilteredTags) {
+                            lastFilteredTags = t;
+                            syncTagDropdownToInput();
+                            saveStateAndReload(false);
+                        }
+                    }, 1000);
+                });
+                tagFilterInput.addEventListener('blur', () => {
+                    clearTimeout(tagFilterDebounceTimer);
+                    const t = tagFilterInput.value.trim();
+                    if (t !== lastFilteredTags) {
+                        lastFilteredTags = t;
+                        syncTagDropdownToInput();
+                        saveStateAndReload(false);
+                    }
+                });
+                tagFilterInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        clearTimeout(tagFilterDebounceTimer);
+                        lastFilteredTags = tagFilterInput.value.trim();
+                        syncTagDropdownToInput();
+                        saveStateAndReload(false);
+                    } else if (e.key === 'Escape' && tagFilterInput.value) {
+                        e.preventDefault();
+                        tagFilterInput.focus();
+                        document.execCommand('selectAll');
+                        document.execCommand('delete');
+                    }
+                });
+
                 tagEditorInput.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter' && selectedCardsForEditing.size > 0) {
                         e.preventDefault();
@@ -1648,7 +2334,7 @@ app.registerExtension({
                                 if (item && !item.tags.includes(newTag)) {
                                     item.tags.push(newTag);
                                     updatePromises.push(updateMetadata(path, { tags: item.tags }));
-                                    
+
                                     const cardInDom = cardholder.querySelector(`.lmm-gallery-card[data-path="${CSS.escape(path)}"]`);
                                     if (cardInDom) {
                                         cardInDom.dataset.tags = item.tags.join(',');
@@ -1656,21 +2342,135 @@ app.registerExtension({
                                     }
                                 }
                             });
-                            
+
                             await Promise.all(updatePromises);
+                            _lmmCache.tags.promise = null;
                             await loadAllTags();
                             renderTagEditor();
                             tagEditorInput.value = "";
                         }
                     }
                 });
-                
+
                 controls.querySelectorAll('select:not(.lmm-path-presets)').forEach(select => { select.addEventListener('change', () => saveStateAndReload(false)); });
-                showImagesCheckbox.addEventListener('change', () => saveStateAndReload(false));
-                showVideosCheckbox.addEventListener('change', () => saveStateAndReload(false));
-                showAudioCheckbox.addEventListener('change', () => saveStateAndReload(false));
-                globalSearchCheckbox.addEventListener('change', () => saveStateAndReload(false));
-                
+                // Type icon click handlers are set up at DOM query time above
+                // Rating dropdown population and handlers
+                const ratingOptions = [
+                    { value: '0', label: '0★' },
+                    { value: '1', label: '1★' },
+                    { value: '2', label: '2★' },
+                    { value: '3', label: '3★' },
+                    { value: '4', label: '4★' },
+                    { value: '5', label: '5★' },
+                ];
+                const ratingAllCb = document.createElement('input');
+                ratingAllCb.type = 'checkbox';
+                ratingAllCb.className = 'lmm-select-all';
+                ratingAllCb.checked = true;
+                const handleRatingSelectionChange = () => {
+                    const checkboxes = ratingDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)');
+                    const selected = Array.from(checkboxes).filter(cb => cb.checked);
+                    const allChecked = selected.length === checkboxes.length;
+                    const noneChecked = selected.length === 0;
+                    ratingAllCb.checked = allChecked;
+                    ratingAllCb.indeterminate = !allChecked && !noneChecked;
+                    const checkedSet = new Set(selected.map(cb => cb.value));
+                    ratingDisplayText.textContent = ratingOptions.map(opt =>
+                        `${opt.value}${checkedSet.has(opt.value) ? '★' : '☆'}`
+                    ).join(' ');
+                    saveStateAndReload(false);
+                };
+                const ratingAllLabel = document.createElement('label');
+                ratingAllLabel.style.borderBottom = '1px solid #444';
+                ratingAllCb.addEventListener('change', () => {
+                    ratingDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)').forEach(cb => { cb.checked = ratingAllCb.checked; });
+                    handleRatingSelectionChange();
+                });
+                ratingAllLabel.appendChild(ratingAllCb);
+                ratingAllLabel.appendChild(document.createTextNode(' All'));
+                ratingDropdown.appendChild(ratingAllLabel);
+                ratingOptions.forEach(opt => {
+                    const label = document.createElement('label');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = opt.value;
+                    cb.checked = true;
+                    cb.addEventListener('change', handleRatingSelectionChange);
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(` ${opt.label}`));
+                    ratingDropdown.appendChild(label);
+                });
+                ratingDisplay.addEventListener('click', () => {
+                    const isVisible = ratingDropdown.style.display === 'block';
+                    ratingDropdown.style.display = isVisible ? 'none' : 'block';
+                    ratingArrow.classList.toggle('open', !isVisible);
+                });
+                recursiveBtn.addEventListener('click', () => {
+                    recursiveMode = !recursiveMode;
+                    recursiveBtn.classList.toggle('inactive', !recursiveMode);
+                    saveStateAndReload(false);
+                });
+                const updateMaskFilterDisplay = () => {
+                    maskFilterToggle.classList.remove('inactive', 'no-mask');
+                    if (maskFilterState === '') {
+                        maskFilterToggle.classList.add('inactive');
+                        maskFilterToggle.title = 'No mask filter active. Click to cycle: mask only → no mask → off';
+                    } else if (maskFilterState === 'mask_only') {
+                        maskFilterToggle.title = 'Showing items with masks only. Click to cycle: no mask → off';
+                    } else if (maskFilterState === 'no_mask') {
+                        maskFilterToggle.classList.add('no-mask');
+                        maskFilterToggle.title = 'Showing items without masks only. Click to cycle: off';
+                    }
+                };
+                maskFilterToggle.addEventListener('click', () => {
+                    if (maskFilterState === '') maskFilterState = 'mask_only';
+                    else if (maskFilterState === 'mask_only') maskFilterState = 'no_mask';
+                    else maskFilterState = '';
+                    updateMaskFilterDisplay();
+                    saveStateAndReload(false);
+                });
+                let searchDebounceTimer = null;
+                let lastSearchedQuery = '';
+
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(searchDebounceTimer);
+                    searchDebounceTimer = setTimeout(() => {
+                        const q = searchInput.value.trim();
+                        if (q !== lastSearchedQuery) {
+                            lastSearchedQuery = q;
+                            saveStateAndReload(false);
+                        }
+                    }, 1000);
+                });
+                searchInput.addEventListener('blur', () => {
+                    clearTimeout(searchDebounceTimer);
+                    const q = searchInput.value.trim();
+                    if (q !== lastSearchedQuery) {
+                        lastSearchedQuery = q;
+                        saveStateAndReload(false);
+                    }
+                });
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        clearTimeout(searchDebounceTimer);
+                        lastSearchedQuery = searchInput.value.trim();
+                        saveStateAndReload(false);
+                    } else if (e.key === 'Escape' && searchInput.value) {
+                        e.preventDefault();
+                        searchInput.focus();
+                        document.execCommand('selectAll');
+                        document.execCommand('delete');
+                    }
+                });
+                clearSearchButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    delete searchInput.dataset.savedValue;
+                    lastSearchedQuery = '';
+                    clearTimeout(searchDebounceTimer);
+                    saveStateAndReload(false);
+                });
+                // Scope change handling is done in the scopeIcons click listeners above
+
                 addPathButton.addEventListener('click', () => {
                     const currentPath = pathInput.value.trim();
                     if (currentPath) {
@@ -1682,46 +2482,52 @@ app.registerExtension({
                         }
                     }
                 });
-                
+
                 removePathButton.addEventListener('click', () => {
                     if (pathPresets.selectedIndex > -1) {
                         pathPresets.remove(pathPresets.selectedIndex);
                         savePaths();
                     }
                 });
-                
+
                 pathPresets.addEventListener('change', () => {
                     if (pathPresets.value) {
                         pathInput.value = pathPresets.value;
                         lastKnownPath = pathInput.value;
-                        saveStateAndReload(true);
+                        saveStateAndReload(false);
                     }
                 });
-                
+
                 const arrow = multiSelectTagContainer.querySelector('.lmm-multiselect-arrow');
                 multiSelectTagDisplay.addEventListener('click', () => {
                     const isVisible = multiSelectTagDropdown.style.display === 'block';
                     multiSelectTagDropdown.style.display = isVisible ? 'none' : 'block';
                     arrow.classList.toggle('open', !isVisible);
                 });
-                
+
                 document.addEventListener('click', (e) => {
                     if (!multiSelectTagContainer.contains(e.target)) {
                         multiSelectTagDropdown.style.display = 'none';
                         arrow.classList.remove('open');
                     }
+                    if (!ratingContainer.contains(e.target)) {
+                        ratingDropdown.style.display = 'none';
+                        ratingArrow.classList.remove('open');
+                    }
                 });
-                
+
                 upButton.onclick = () => {
-                    if(parentDir){
+                    if (parentDir) {
                         pathInput.value = parentDir;
-                        globalSearchCheckbox.checked = false;
+                        searchInput.value = '';
+                        delete searchInput.dataset.savedValue;
+                        lastSearchedQuery = '';
                         tagFilterInput.value = "";
-                        resetAndReload(true);
+                        resetAndReload(false);
                         pathPresets.selectedIndex = 0;
                     }
                 };
-                
+
                 tagFilterModeBtn.addEventListener('click', () => {
                     if (tagFilterModeBtn.textContent === 'OR') {
                         tagFilterModeBtn.textContent = 'AND';
@@ -1732,7 +2538,18 @@ app.registerExtension({
                     }
                     saveStateAndReload(false);
                 });
-                
+
+                combineModeBtn.addEventListener('click', () => {
+                    if (combineModeBtn.textContent === 'AND') {
+                        combineModeBtn.textContent = 'OR';
+                        combineModeBtn.style.backgroundColor = "#2563EB";
+                    } else {
+                        combineModeBtn.textContent = 'AND';
+                        combineModeBtn.style.backgroundColor = "#555";
+                    }
+                    saveStateAndReload(false);
+                });
+
                 const updateShowSelectedButtonUI = () => {
                     if (showSelectedMode) {
                         showSelectedButton.classList.add('active');
@@ -1744,7 +2561,7 @@ app.registerExtension({
                         showSelectedButton.title = "Show all selected items across folders";
                     }
                 };
-                
+
                 showSelectedButton.addEventListener('click', () => {
                     showSelectedMode = !showSelectedMode;
                     if (!showSelectedMode) {
@@ -1752,22 +2569,23 @@ app.registerExtension({
                     }
                     saveStateAndReload(false);
                 });
-                
+
                 cardholder.onscroll = () => {
                     updateVisibleItemsAndRender();
-                    if (cardholder.scrollTop + cardholder.clientHeight >= cardholder.scrollHeight - 300 && !isLoading && currentPage < totalPages) { 
-                        fetchImages.call(this, currentPage + 1, true, false); 
-                    } 
+                    if (cardholder.scrollTop + cardholder.clientHeight >= cardholder.scrollHeight - 300 && !isLoading && currentPage < totalPages) {
+                        fetchImages.call(this, currentPage + 1, true, false);
+                    }
                 };
-                
+
                 const clearTagFilterButton = controls.querySelector(".lmm-clear-tag-filter-button");
                 clearTagFilterButton.addEventListener("click", () => {
                     tagFilterInput.value = "";
-                    const checkboxes = multiSelectTagDropdown.querySelectorAll('input[type="checkbox"]');
-                    checkboxes.forEach(cb => { cb.checked = false; });
+                    lastFilteredTags = '';
+                    clearTimeout(tagFilterDebounceTimer);
+                    syncTagDropdownToInput();
                     saveStateAndReload(false);
                 });
-                
+
                 document.addEventListener("keydown", (e) => {
                     if (e.key === "Escape") {
                         if (selectedCardsForEditing.size > 0) {
@@ -1777,16 +2595,16 @@ app.registerExtension({
                         }
                     }
                 });
-                
+
                 batchSelectAllBtn.addEventListener('click', () => {
                     const allMediaItems = allItems.filter(card => card.type !== 'dir');
-                    
+
                     if (selection.length === allMediaItems.length) {
                         selection = [];
                     } else {
                         selection = allMediaItems.map(item => ({ path: item.path, type: item.type }));
                     }
-                    
+
                     cardholder.querySelectorAll('.lmm-gallery-card').forEach(card => {
                         if (selection.some(item => item.path === card.dataset.path)) {
                             card.classList.add('lmm-selected');
@@ -1794,18 +2612,18 @@ app.registerExtension({
                             card.classList.remove('lmm-selected');
                         }
                     });
-                    
+
                     renderSelectionBadges();
-                    
+
                     const selectionJson = JSON.stringify(selection);
                     node_instance.setProperty("selection", selectionJson);
                     const widget = node_instance.widgets.find(w => w.name === "selection");
                     if (widget) { widget.value = selectionJson; }
-                    
+
                     setUiState.call(node_instance, node_instance.id, { selection: selection });
                     updateBatchActionButtonsState();
                 });
-                
+
                 batchDeleteBtn.addEventListener('click', async () => {
                     if (selection.length === 0) return;
                     const filepaths = selection.map(item => item.path);
@@ -1820,14 +2638,14 @@ app.registerExtension({
                         } catch (e) { alert(`Failed to delete files: ${e}`); }
                     }
                 });
-                
+
                 batchMoveBtn.addEventListener('click', async () => {
                     if (selection.length === 0) return;
-                    
+
                     const source_paths = selection.map(item => item.path);
                     const presetOptions = Array.from(pathPresets.options).filter(o => o.value).map((o, i) => `${i + 1}: ${o.value}`).join('\n');
                     const destination_dir = prompt("Enter destination folder path, or a preset number:\n\n" + presetOptions);
-                    
+
                     if (destination_dir) {
                         let final_dest_dir = destination_dir.trim();
                         const presetIndex = parseInt(final_dest_dir, 10) - 1;
@@ -1835,7 +2653,7 @@ app.registerExtension({
                         if (!isNaN(presetIndex) && presetIndex >= 0 && presetIndex < presetValues.length) {
                             final_dest_dir = presetValues[presetIndex];
                         }
-                        
+
                         try {
                             const response = await api.fetchApi("/local_image_gallery/move_files", {
                                 method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_paths, destination_dir: final_dest_dir }),
@@ -1850,17 +2668,17 @@ app.registerExtension({
                         } catch (e) { alert(`Failed to move files: ${e}`); }
                     }
                 });
-                
+
                 const handleRename = async () => {
                     if (selectedCardsForEditing.size !== 1) return;
-                    
+
                     const old_path = selectedCardsForEditing.values().next().value;
                     const new_name = renameInput.value.trim();
-                    
+
                     if (!new_name || new_name === old_path.split(/[/\\]/).pop()) {
                         return;
                     }
-                    
+
                     try {
                         const response = await api.fetchApi("/local_image_gallery/rename_file", {
                             method: "POST",
@@ -1878,7 +2696,7 @@ app.registerExtension({
                                 if (widget) { widget.value = selectionJson; }
                                 setUiState.call(node_instance, node_instance.id, { selection: selection });
                             }
-                            
+
                             selectedCardsForEditing.clear();
                             renderTagEditor();
                             resetAndReload(true);
@@ -1889,7 +2707,7 @@ app.registerExtension({
                         alert(`Failed to rename file: ${e}`);
                     }
                 };
-                
+
                 renameBtn.addEventListener('click', handleRename);
                 renameInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -1897,35 +2715,79 @@ app.registerExtension({
                         handleRename();
                     }
                 });
-                
+
                 const initializeNode = async () => {
                     try {
                         const galleryId = this.properties.gallery_unique_id;
                         const response = await api.fetchApi(`/local_image_gallery/get_ui_state?node_id=${this.id}&gallery_id=${galleryId}`);
-                        const state = await response.json();
+                        let state = await response.json();
+                        // Clipspace fallback: if server returned defaults, try properties
+                        if (state && !state.last_path && node_instance.properties.lmm_state) {
+                            try {
+                                const propState = JSON.parse(node_instance.properties.lmm_state);
+                                state = { ...state, ...propState };
+                            } catch (e) {}
+                        }
                         if (state) {
                             controls.querySelector(".lmm-sort-by").value = state.sort_by;
                             controls.querySelector(".lmm-sort-order").value = state.sort_order;
-                            showImagesCheckbox.checked = state.show_images !== false;
-                            showVideosCheckbox.checked = state.show_videos;
-                            showAudioCheckbox.checked = state.show_audio;
+                            controls.querySelector('.lmm-type-icons span[data-type="images"]').classList.toggle('inactive', state.show_images === false);
+                            controls.querySelector('.lmm-type-icons span[data-type="videos"]').classList.toggle('inactive', !state.show_videos);
+                            controls.querySelector('.lmm-type-icons span[data-type="audio"]').classList.toggle('inactive', !state.show_audio);
                             tagFilterInput.value = state.filter_tag;
-                            globalSearchCheckbox.checked = state.global_search;
+                            lastFilteredTags = (state.filter_tag || '').trim();
+                            searchInput.value = state.search_query || '';
+                            lastSearchedQuery = searchInput.value.trim();
+                            const savedScopes = state.search_scopes || (state.search_scope ? [state.search_scope] : ['current', 'input', 'output', 'saved']);
+                            activeScopes.clear();
+                            savedScopes.forEach(s => activeScopes.add(s));
+                            updateScopeDisplay();
                             showSelectedMode = state.show_selected_mode || false;
-                            
+                            if (state.filter_ratings && state.filter_ratings.length > 0) {
+                                const selectedSet = new Set(state.filter_ratings);
+                                ratingDropdown.querySelectorAll('input[type="checkbox"]:not(.lmm-select-all)').forEach(cb => {
+                                    cb.checked = selectedSet.has(parseInt(cb.value));
+                                });
+                                handleRatingSelectionChange();
+                            }
+                            recursiveMode = state.recursive || false;
+                            recursiveBtn.classList.toggle('inactive', !recursiveMode);
+                            maskFilterState = state.mask_filter || '';
+                            updateMaskFilterDisplay();
+
+                            if (state.filter_mode) {
+                                tagFilterModeBtn.textContent = state.filter_mode;
+                                tagFilterModeBtn.style.backgroundColor = state.filter_mode === 'AND' ? '#D97706' : '#555';
+                            }
+                            if (state.combine_mode) {
+                                combineModeBtn.textContent = state.combine_mode;
+                                combineModeBtn.style.backgroundColor = state.combine_mode === 'OR' ? '#2563EB' : '#555';
+                            }
+
                             selection = state.selection || [];
+                            // Fallback: if UI state has no selection, try properties (copy-paste scenario)
+                            if (selection.length === 0) {
+                                try {
+                                    const propSel = JSON.parse(node_instance.properties.selection || "[]");
+                                    if (Array.isArray(propSel) && propSel.length > 0) {
+                                        selection = propSel;
+                                    }
+                                } catch (e) {}
+                            }
                             updateBatchActionButtonsState();
-                            
+
                             const selectionJson = JSON.stringify(selection);
                             this.setProperty("selection", selectionJson);
                             const widget = this.widgets.find(w => w.name === "selection");
                             if (widget) { widget.value = selectionJson; }
-                            
+
                             if (state.last_path) {
                                 pathInput.value = state.last_path;
                                 lastKnownPath = state.last_path;
                             }
-                            
+
+                            // Persist state to properties so subsequent copies carry it
+                            saveCurrentControlsState();
                             switchToBreadcrumb(false);
                             resetAndReload(false);
                         }
@@ -1935,11 +2797,10 @@ app.registerExtension({
                         resetAndReload(false);
                     }
                 };
-                
+
                 const loadSavedPaths = async () => {
                     try {
-                        const response = await api.fetchApi("/local_image_gallery/get_saved_paths");
-                        const data = await response.json();
+                        const data = await fetchPathsCached();
                         pathPresets.innerHTML = '<option value="" disabled selected>Select a common path</option>';
                         if (data.saved_paths) {
                             data.saved_paths.forEach(p => {
@@ -1951,7 +2812,7 @@ app.registerExtension({
                         }
                     } catch (e) { console.error("Unable to load saved paths:", e); }
                 };
-                
+
                 const maskEditorBtn = controls.querySelector(".lmm-mask-editor-btn");
                 maskEditorBtn.addEventListener("click", () => {
                     if (selection.length !== 1 || selection[0].type !== 'image') {
@@ -1964,12 +2825,13 @@ app.registerExtension({
                         });
                     }
                 });
-                
+
+                // Defer 1ms: LiteGraph hasn't wired this.widgets/setProperty yet when nodeCreated returns
                 setTimeout(() => initializeNode.call(this), 1);
                 loadSavedPaths();
                 loadAllTags();
-                
-                this.onResize = function(size) {
+
+                this.onResize = function (size) {
                     const minHeight = 470;
                     const minWidth = 800;
                     if (size[1] < minHeight) size[1] = minHeight;
@@ -1978,7 +2840,7 @@ app.registerExtension({
                     if (galleryContainer) {
                         let topOffset = galleryContainer.offsetTop;
 
-                        const approximateHeaderHeight = 120; 
+                        const approximateHeaderHeight = 120;
                         if (topOffset < 20) {
                             topOffset += approximateHeaderHeight;
                         }
@@ -1992,7 +2854,7 @@ app.registerExtension({
                     }
 
                     renderBreadcrumb(pathInput.value);
-                    debouncedLayout(); 
+                    debouncedLayout();
                 };
 
                 requestAnimationFrame(() => {
@@ -2000,7 +2862,7 @@ app.registerExtension({
                         this.onResize(this.size);
                     }
                 });
-                
+
                 return r;
             };
 

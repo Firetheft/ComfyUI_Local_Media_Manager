@@ -105,6 +105,12 @@ To support powerful new features like video processing and safe file deletion, t
 * **`torchaudio`**: Enables audio processing for the `Select Original Audio` and `Select Original Video` nodes.
 * **`send2trash`**: Ensures that deleting files is safer by sending them to the system's Recycle Bin/Trash instead of permanently deleting them.
 
+**Video Backend — PyAV:**
+
+The node uses **PyAV** (the `av` Python package) as its **primary backend** for video thumbnails, video metadata, and loading video frames. PyAV bundles a modern FFmpeg build with `libdav1d`, so it decodes **AV1** (the modern codec used by YouTube and much web video) in-process — fast, no external process, and no system `ffmpeg` required on `PATH`.
+
+When PyAV is not available in the environment, the node automatically falls back to **OpenCV** (`opencv-python`/`cv2`). Note that OpenCV's bundled FFmpeg cannot software-decode AV1, so AV1 files will fail on the cv2 fallback — PyAV is what makes AV1 work reliably. Both `av` and `opencv-python` are listed in `requirements.txt` and installed automatically with the node; no manual setup is needed.
+
 **Installation:**
 The easiest way to install these is through the **ComfyUI Manager**. After updating the custom node, the manager should detect the missing dependencies and prompt you to install them.
 

@@ -1,3 +1,4 @@
 send2trash
 opencv-python-headless
 torchaudio
+av>=12.0  # >=12 bundles FFmpeg with libdav1d for AV1 software decode
