@@ -474,6 +474,8 @@ app.registerExtension({
                         #${uniqueId} .lmm-container-wrapper { width: 100%; font-family: sans-serif; color: var(--node-text-color); box-sizing: border-box; display: flex; flex-direction: column; height: 100%; }
                         #${uniqueId} .lmm-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; flex-shrink: 0; padding-right: 60px; }
                         #${uniqueId} .lmm-container-wrapper > .lmm-controls:first-child { margin-top: -110px; }
+                        #${uniqueId}.lmm-vue-nodes { display: flex; flex-direction: column; min-width: 0; min-height: 250px; contain: size; }
+                        #${uniqueId}.lmm-vue-nodes > .lmm-container-wrapper { flex: 1 1 auto; height: auto; min-height: 0; }
                         #${uniqueId} .lmm-controls label { margin-left: 0px; font-size: 12px; white-space: nowrap; }
                         #${uniqueId} .lmm-controls input, #${uniqueId} .lmm-controls select, #${uniqueId} .lmm-controls button { background-color: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px; font-size: 12px; }
                         #${uniqueId} .lmm-path-controls input[type=text] { width: 100%; box-sizing: border-box; }
@@ -630,6 +632,7 @@ app.registerExtension({
                         #${uniqueId} .lmm-batch-move-btn:not(:disabled):hover { background-color: #2980B9; }
                         #${uniqueId} .lmm-batch-select-all-btn:not(:disabled):hover { background-color: #2980B9; }
                         #${uniqueId} .lmm-gallery-placeholder { position: absolute; top: 10px; left: 10px; color: #666; }
+                        #${uniqueId} .lmm-scroll-spacer { position: absolute; top: 0; left: 0; width: 1px; height: 0; visibility: hidden; pointer-events: none; }
 
                         #${uniqueId} .lmm-mask-editor-btn { background-color: #2a2a2a; border: 1px solid #555; color: #eee; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
                         #${uniqueId} .lmm-mask-editor-btn:hover { background-color: #444; }
@@ -693,6 +696,7 @@ app.registerExtension({
                             </div>
                         <div class="lmm-cardholder">
                             <div class="lmm-gallery-placeholder">Enter folder path and click 'Refresh'.</div>
+                            <div class="lmm-scroll-spacer"></div>
                         </div>
                     </div>
                 `;
@@ -702,6 +706,7 @@ app.registerExtension({
                 const cardholder = galleryContainer.querySelector(".lmm-cardholder");
                 const controls = galleryContainer.querySelector(".lmm-container-wrapper");
                 const placeholder = galleryContainer.querySelector(".lmm-gallery-placeholder");
+                const scrollSpacer = galleryContainer.querySelector(".lmm-scroll-spacer");
                 
                 const breadcrumbContainer = controls.querySelector(".lmm-breadcrumb-container");
                 const breadcrumbEl = breadcrumbContainer.querySelector(".lmm-breadcrumb");
@@ -886,7 +891,7 @@ app.registerExtension({
                 const calculateFullLayout = () => {
                     const minCardWidth = 150, gap = 5, containerWidth = cardholder.clientWidth;
                     if (containerWidth === 0 || allItems.length === 0) {
-                        cardholder.style.height = '0px';
+                        scrollSpacer.style.height = '0px';
                         layoutData = [];
                         return;
                     }
@@ -961,7 +966,7 @@ app.registerExtension({
                     measuringDiv.innerHTML = "";
                     
                     const totalHeight = Math.max(...columnHeights);
-                    cardholder.style.height = `${totalHeight}px`;
+                    scrollSpacer.style.height = `${totalHeight}px`;
                     
                     updateVisibleItemsAndRender();
                 };
@@ -1402,7 +1407,7 @@ app.registerExtension({
                         
                         if (!append) {
                             allItems = items;
-                            cardholder.innerHTML = ''; 
+                            cardholder.querySelectorAll('.lmm-gallery-card').forEach(card => card.remove());
                             cardholder.scrollTop = 0;
                         } else {
                             const existingPaths = new Set(allItems.map(i => i.path));
@@ -1969,13 +1974,42 @@ app.registerExtension({
                 loadSavedPaths();
                 loadAllTags();
                 
+                const isVueNodesMode = () => !!(window.LiteGraph?.vueNodesMode || galleryContainer.closest(".lg-node"));
+
+                let lastCardholderWidth = 0;
+                const cardholderObserver = new ResizeObserver(() => {
+                    const width = cardholder.clientWidth;
+                    if (width !== lastCardholderWidth) {
+                        lastCardholderWidth = width;
+                        debouncedLayout();
+                    } else {
+                        updateVisibleItemsAndRender();
+                    }
+                });
+                cardholderObserver.observe(cardholder);
+
+                const origOnRemoved = this.onRemoved;
+                this.onRemoved = function() {
+                    cardholderObserver.disconnect();
+                    return origOnRemoved?.apply(this, arguments);
+                };
+
+                const origOnResize = this.onResize;
                 this.onResize = function(size) {
+                    origOnResize?.apply(this, arguments);
+
                     const minHeight = 470;
                     const minWidth = 800;
                     if (size[1] < minHeight) size[1] = minHeight;
                     if (size[0] < minWidth) size[0] = minWidth;
 
-                    if (galleryContainer) {
+                    const vueNodes = isVueNodesMode();
+                    galleryContainer.classList.toggle("lmm-vue-nodes", vueNodes);
+
+                    if (vueNodes) {
+                        galleryContainer.style.height = "";
+                        galleryContainer.style.width = "";
+                    } else if (galleryContainer) {
                         let topOffset = galleryContainer.offsetTop;
 
                         const approximateHeaderHeight = 120; 
